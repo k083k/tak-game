@@ -73,11 +73,13 @@ export const useGameState = () => {
       const player1 = new Player(engineData.player1.name, engineData.player1.isHuman);
       player1.avatar = engineData.player1.avatar;
       player1.roundScores = engineData.player1.roundScores;
+      player1.totalScore = engineData.player1.totalScore;
       player1.setHand(engineData.player1.hand.map(c => new Card(c.suit, c.rank)));
 
       const player2 = new Player(engineData.player2.name, engineData.player2.isHuman);
       player2.avatar = engineData.player2.avatar;
       player2.roundScores = engineData.player2.roundScores;
+      player2.totalScore = engineData.player2.totalScore;
       player2.setHand(engineData.player2.hand.map(c => new Card(c.suit, c.rank)));
 
       // Recreate game engine
@@ -212,8 +214,9 @@ export const useGameState = () => {
             return;
           }
 
-          // AI didn't knock - start 3-second countdown (same as player)
-          setKnockCountdown(3);
+          // AI didn't knock - start countdown (1 sec for hard, 3 sec for easy)
+          const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
+          setKnockCountdown(knockWindowDuration);
 
           const countdownInterval = setInterval(() => {
             setKnockCountdown(prev => {
@@ -225,7 +228,7 @@ export const useGameState = () => {
             });
           }, 1000);
 
-          // After 3 seconds, switch back to player
+          // After countdown duration, switch back to player
           setTimeout(() => {
             setKnockCountdown(null);
             engine.switchPlayer();
@@ -240,11 +243,11 @@ export const useGameState = () => {
             }
 
             refresh();
-          }, 3000);
+          }, knockWindowDuration * 1000);
         }, 600); // After discard animation
       }, 300); // AI thinking delay
     }, 600); // After draw animation
-  }, [refresh]);
+  }, [refresh, difficulty]);
 
   /**
    * Start a new game
@@ -376,8 +379,9 @@ export const useGameState = () => {
       setHasDrawn(false);
       refresh();
 
-      // Start 3-second countdown for knock window
-      setKnockCountdown(3);
+      // Start countdown for knock window (1 sec for hard, 3 sec for easy)
+      const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
+      setKnockCountdown(knockWindowDuration);
 
       const countdownInterval = setInterval(() => {
         setKnockCountdown(prev => {
@@ -389,7 +393,7 @@ export const useGameState = () => {
         });
       }, 1000);
 
-      // After 3 seconds, automatically switch to next player
+      // After countdown duration, automatically switch to next player
       setTimeout(() => {
         // Clear countdown first
         setKnockCountdown(null);
@@ -415,9 +419,9 @@ export const useGameState = () => {
           // PvP mode - refresh now since no AI turn
           refresh();
         }
-      }, 3000);
+      }, knockWindowDuration * 1000);
     }, 600); // Match animation duration
-  }, [gameEngine, hasDrawn, gameMode, playAITurn, refresh]);
+  }, [gameEngine, hasDrawn, gameMode, playAITurn, refresh, difficulty]);
 
   /**
    * Player knocks

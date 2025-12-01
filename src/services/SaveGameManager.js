@@ -73,6 +73,7 @@ export class SaveGameManager {
           rank: card.rank
         })),
         roundScores: engine.player1.roundScores,
+        totalScore: engine.player1.totalScore,
         isHuman: engine.player1.isHuman
       },
       player2: {
@@ -83,6 +84,7 @@ export class SaveGameManager {
           rank: card.rank
         })),
         roundScores: engine.player2.roundScores,
+        totalScore: engine.player2.totalScore,
         isHuman: engine.player2.isHuman
       },
       deck: engine.deck.cards.map(card => ({

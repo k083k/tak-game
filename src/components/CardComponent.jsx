@@ -7,13 +7,27 @@ export const CardComponent = ({
   isWild = false,
   isSelected = false,
   onClick = null,
-  index = 0
+  index = 0,
+  size = 'md' // 'sm', 'md', 'lg'
 }) => {
   const getCardColor = () => {
     if (isHidden) return '';
     if (!card) return '';
     return card.isRed() ? 'text-red-600' : 'text-gray-900';
   };
+
+  // Get card dimensions based on size prop
+  const getCardDimensions = () => {
+    const sizes = {
+      'xs': { width: 'w-14', height: 'h-20', fontSize: 'text-[8px]', suitSize: 'text-xs', centerSize: 'text-2xl', wild: 'w-4 h-4 text-[8px]' },
+      'sm': { width: 'w-16', height: 'h-24', fontSize: 'text-[9px]', suitSize: 'text-sm', centerSize: 'text-3xl', wild: 'w-4 h-4 text-[9px]' },
+      'md': { width: 'w-20', height: 'h-28', fontSize: 'text-[10px]', suitSize: 'text-sm', centerSize: 'text-3xl', wild: 'w-5 h-5 text-[10px]' },
+      'lg': { width: 'w-24', height: 'h-32', fontSize: 'text-xs', suitSize: 'text-base', centerSize: 'text-4xl', wild: 'w-6 h-6 text-xs' }
+    };
+    return sizes[size] || sizes['md'];
+  };
+
+  const dimensions = getCardDimensions();
 
   // Generate pip positions for number cards
   const getPipPositions = (rank) => {
@@ -54,7 +68,7 @@ export const CardComponent = ({
   };
 
   const cardClasses = `
-    relative w-20 h-28 rounded-lg
+    relative ${dimensions.width} ${dimensions.height} rounded-lg
     flex flex-col items-center justify-center
     font-bold transition-all duration-300 ease-out
     ${isHidden
@@ -114,7 +128,7 @@ export const CardComponent = ({
 
   if (!card) {
     return (
-      <div className="w-20 h-28 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center opacity-50">
+      <div className={`${dimensions.width} ${dimensions.height} rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center opacity-50`}>
         <span className="text-gray-400 text-xs">Empty</span>
       </div>
     );
@@ -136,8 +150,8 @@ export const CardComponent = ({
 
       {/* Wild card indicator */}
       {isWild && (
-        <div className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center shadow-md">
-          <span className="text-white text-[10px] font-bold">W</span>
+        <div className={`absolute -top-1 -right-1 ${dimensions.wild.split(' ')[0]} ${dimensions.wild.split(' ')[1]} bg-orange-500 rounded-full flex items-center justify-center shadow-md`}>
+          <span className={`text-white ${dimensions.wild.split(' ')[2]} font-bold`}>W</span>
         </div>
       )}
 
@@ -146,51 +160,51 @@ export const CardComponent = ({
         {card.isJoker() ? (
           <>
             {/* Joker corner indices */}
-            <div className="absolute top-1 left-1.5 flex flex-col items-center text-[10px] leading-tight">
+            <div className={`absolute top-1 left-1.5 flex flex-col items-center ${dimensions.fontSize} leading-tight`}>
               <span className="text-purple-600 font-bold">JKR</span>
             </div>
-            <div className="absolute bottom-1 right-1.5 flex flex-col items-center text-[10px] leading-tight rotate-180">
+            <div className={`absolute bottom-1 right-1.5 flex flex-col items-center ${dimensions.fontSize} leading-tight rotate-180`}>
               <span className="text-purple-600 font-bold">JKR</span>
             </div>
             {/* Joker center */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-              <span className="text-3xl">🃏</span>
+              <span className={dimensions.centerSize}>🃏</span>
             </div>
           </>
         ) : card.rank >= 11 && card.rank <= 13 ? (
           // Face cards (J, Q, K)
           <>
             {/* Corner indices */}
-            <div className="absolute top-1 left-1.5 flex flex-col items-center text-[10px] leading-tight">
+            <div className={`absolute top-1 left-1.5 flex flex-col items-center ${dimensions.fontSize} leading-tight`}>
               <span className="font-bold">{card.getDisplayRank()}</span>
-              <span className="text-sm">{card.suit}</span>
+              <span className={dimensions.suitSize}>{card.suit}</span>
             </div>
-            <div className="absolute bottom-1 right-1.5 flex flex-col items-center text-[10px] leading-tight rotate-180">
+            <div className={`absolute bottom-1 right-1.5 flex flex-col items-center ${dimensions.fontSize} leading-tight rotate-180`}>
               <span className="font-bold">{card.getDisplayRank()}</span>
-              <span className="text-sm">{card.suit}</span>
+              <span className={dimensions.suitSize}>{card.suit}</span>
             </div>
             {/* Large letter in center */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <span className="text-5xl font-bold opacity-20">{card.getDisplayRank()}</span>
+              <span className={`${dimensions.centerSize} font-bold opacity-20`}>{card.getDisplayRank()}</span>
             </div>
           </>
         ) : (
           // Number cards with pip layout
           <>
             {/* Corner indices */}
-            <div className="absolute top-1 left-1.5 flex flex-col items-center text-[10px] leading-tight">
+            <div className={`absolute top-1 left-1.5 flex flex-col items-center ${dimensions.fontSize} leading-tight`}>
               <span className="font-bold">{card.getDisplayRank()}</span>
-              <span className="text-sm">{card.suit}</span>
+              <span className={dimensions.suitSize}>{card.suit}</span>
             </div>
-            <div className="absolute bottom-1 right-1.5 flex flex-col items-center text-[10px] leading-tight rotate-180">
+            <div className={`absolute bottom-1 right-1.5 flex flex-col items-center ${dimensions.fontSize} leading-tight rotate-180`}>
               <span className="font-bold">{card.getDisplayRank()}</span>
-              <span className="text-sm">{card.suit}</span>
+              <span className={dimensions.suitSize}>{card.suit}</span>
             </div>
             {/* Pips */}
             {getPipPositions(card.rank).map((position, idx) => (
               <div
                 key={idx}
-                className={`absolute text-lg ${getPipStyle(position)}`}
+                className={`absolute ${dimensions.suitSize} ${getPipStyle(position)}`}
               >
                 {card.suit}
               </div>

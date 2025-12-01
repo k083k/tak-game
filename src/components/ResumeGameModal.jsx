@@ -21,18 +21,18 @@ export const ResumeGameModal = ({ onResume, onStartNew }) => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 max-w-md w-full border border-white/10 shadow-2xl"
+          className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 md:p-8 max-w-md w-full border border-white/10 shadow-2xl"
         >
           {/* Icon */}
-          <div className="text-6xl text-center mb-4">💾</div>
+          <div className="text-5xl md:text-6xl text-center mb-3 md:mb-4">💾</div>
 
           {/* Title */}
-          <h2 className="text-3xl font-black text-white text-center mb-3">
+          <h2 className="text-2xl md:text-3xl font-black text-white text-center mb-2 md:mb-3">
             Game Found
           </h2>
 
           {/* Message */}
-          <p className="text-white/70 text-center mb-8">
+          <p className="text-white/70 text-sm md:text-base text-center mb-6 md:mb-8">
             You have a saved game in progress. Would you like to continue where you left off?
           </p>
 

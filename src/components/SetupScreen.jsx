@@ -1,4 +1,6 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { HelpModal } from './HelpModal';
 
 /**
  * Setup screen - clean minimalist design
@@ -14,6 +16,7 @@ export const SetupScreen = ({
   setDifficulty,
   onStartGame
 }) => {
+  const [showHelp, setShowHelp] = useState(false);
   const avatars = ['👤', '😎', '🎮', '👨', '👩', '🧑', '🤓', '😊'];
 
   return (
@@ -37,12 +40,12 @@ export const SetupScreen = ({
               scale: [1, 1.1, 1]
             }}
             transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-            className="text-6xl mb-3"
+            className="text-5xl md:text-6xl mb-2 md:mb-3"
           >
             🎴
           </motion.div>
-          <h1 className="text-5xl font-black text-white mb-2">Card Game</h1>
-          <p className="text-white/50 text-base">13 Rounds of Strategy</p>
+          <h1 className="text-3xl md:text-5xl font-black text-white mb-1 md:mb-2">Card Game</h1>
+          <p className="text-white/50 text-sm md:text-base">13 Rounds of Strategy</p>
         </motion.div>
 
         {/* Two Column Layout */}
@@ -151,7 +154,7 @@ export const SetupScreen = ({
                 >
                   <div className="text-3xl mb-1">😊</div>
                   <div className="text-white font-bold text-sm">Easy</div>
-                  <div className="text-white/60 text-xs mt-0.5">Score shown</div>
+                  <div className="text-white/60 text-xs mt-0.5">Score shown • 3s knock</div>
                 </motion.button>
 
                 <motion.button
@@ -166,28 +169,31 @@ export const SetupScreen = ({
                 >
                   <div className="text-3xl mb-1">🔥</div>
                   <div className="text-white font-bold text-sm">Hard</div>
-                  <div className="text-white/60 text-xs mt-0.5">Score hidden</div>
+                  <div className="text-white/60 text-xs mt-0.5">Score hidden • 1s knock</div>
                 </motion.button>
               </div>
             </div>
           </motion.div>
         </div>
 
-        {/* Rules - Compact */}
-        <motion.div
+        {/* How to Play Button */}
+        <motion.button
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="bg-white/5 backdrop-blur-sm rounded-2xl p-5 mb-5 border border-white/10"
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={() => setShowHelp(true)}
+          className="w-full bg-white/5 backdrop-blur-sm rounded-2xl p-4 mb-5 border border-white/10 hover:bg-white/10 transition-colors"
         >
-          <h3 className="text-white text-sm font-semibold mb-3 uppercase tracking-wider">Quick Rules</h3>
-          <div className="grid grid-cols-2 gap-3 text-white/80 text-sm">
-            <div>• Form sets or runs</div>
-            <div>• Wild cards each round</div>
-            <div>• Knock at score 0</div>
-            <div>• Lowest score wins</div>
+          <div className="flex items-center justify-center gap-3">
+            <span className="text-2xl">📖</span>
+            <div className="text-left">
+              <div className="text-white font-semibold text-sm">How to Play</div>
+              <div className="text-white/60 text-xs">View complete game rules and instructions</div>
+            </div>
           </div>
-        </motion.div>
+        </motion.button>
 
         {/* Start Button */}
         <motion.button
@@ -202,6 +208,13 @@ export const SetupScreen = ({
           START GAME
         </motion.button>
       </motion.div>
+
+      {/* Help Modal */}
+      <AnimatePresence>
+        {showHelp && (
+          <HelpModal onClose={() => setShowHelp(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

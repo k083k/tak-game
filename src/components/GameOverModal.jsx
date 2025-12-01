@@ -26,13 +26,13 @@ export const GameOverModal = ({ gameEngine, onNewGame }) => {
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", duration: 0.6 }}
-        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full p-10 border border-white/10"
+        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full p-4 md:p-10 border border-white/10 max-h-[90vh] overflow-y-auto"
       >
         <motion.div
           initial={{ y: -30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="text-center mb-10"
+          className="text-center mb-6 md:mb-10"
         >
           <motion.div
             animate={{
@@ -40,14 +40,14 @@ export const GameOverModal = ({ gameEngine, onNewGame }) => {
               rotate: [0, 10, -10, 0]
             }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="text-9xl mb-4"
+            className="text-6xl md:text-9xl mb-3 md:mb-4"
           >
             {winner ? '🏆' : '🤝'}
           </motion.div>
-          <h2 className="text-5xl font-black text-white mb-3">
+          <h2 className="text-3xl md:text-5xl font-black text-white mb-2 md:mb-3">
             Game Over
           </h2>
-          <p className="text-4xl font-bold text-white">
+          <p className="text-2xl md:text-4xl font-bold text-white">
             {getWinnerText()}
           </p>
         </motion.div>
@@ -56,31 +56,31 @@ export const GameOverModal = ({ gameEngine, onNewGame }) => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="grid grid-cols-2 gap-6 mb-10"
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-10"
         >
-          <div className={`p-6 rounded-2xl text-center border-2 ${
+          <div className={`p-4 md:p-6 rounded-2xl text-center border-2 ${
             winner === player1
               ? 'bg-white/10 border-white/30'
               : 'bg-white/5 border-white/10'
           }`}>
-            <div className="text-4xl mb-3">
+            <div className="text-3xl md:text-4xl mb-2 md:mb-3">
               {winner === player1 ? '👑' : '👤'}
             </div>
-            <h4 className="text-lg font-semibold text-white/70 mb-3">{player1.name}</h4>
-            <p className="text-5xl font-black text-white mb-2">{player1.getTotalScore()}</p>
+            <h4 className="text-base md:text-lg font-semibold text-white/70 mb-2 md:mb-3">{player1.name}</h4>
+            <p className="text-3xl md:text-5xl font-black text-white mb-2">{player1.getTotalScore()}</p>
             <p className="text-xs text-white/50">FINAL SCORE</p>
           </div>
 
-          <div className={`p-6 rounded-2xl text-center border-2 ${
+          <div className={`p-4 md:p-6 rounded-2xl text-center border-2 ${
             winner === player2
               ? 'bg-white/10 border-white/30'
               : 'bg-white/5 border-white/10'
           }`}>
-            <div className="text-4xl mb-3">
+            <div className="text-3xl md:text-4xl mb-2 md:mb-3">
               {winner === player2 ? '👑' : '🤖'}
             </div>
-            <h4 className="text-lg font-semibold text-white/70 mb-3">{player2.name}</h4>
-            <p className="text-5xl font-black text-white mb-2">{player2.getTotalScore()}</p>
+            <h4 className="text-base md:text-lg font-semibold text-white/70 mb-2 md:mb-3">{player2.name}</h4>
+            <p className="text-3xl md:text-5xl font-black text-white mb-2">{player2.getTotalScore()}</p>
             <p className="text-xs text-white/50">FINAL SCORE</p>
           </div>
         </motion.div>

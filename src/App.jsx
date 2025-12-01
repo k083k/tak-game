@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useGameState } from './hooks/useGameState';
+import { useScreenSize } from './hooks/useScreenSize';
 import { SetupScreen } from './components/SetupScreen';
 import { GameBoard } from './components/GameBoard';
 import { RoundEndModal } from './components/RoundEndModal';
 import { GameOverModal } from './components/GameOverModal';
 import { ResumeGameModal } from './components/ResumeGameModal';
+import { ScreenSizeWarning } from './components/ScreenSizeWarning';
 import { Toaster } from 'react-hot-toast';
 
 /**
@@ -40,6 +42,7 @@ function App() {
   } = useGameState();
 
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const isLargeEnough = useScreenSize();
 
   // Check for saved game on mount
   useEffect(() => {
@@ -60,6 +63,11 @@ function App() {
   const handleStartNew = () => {
     setShowResumeModal(false);
   };
+
+  // Show warning if screen is too small
+  if (!isLargeEnough) {
+    return <ScreenSizeWarning />;
+  }
 
   return (
     <div className="min-h-screen">

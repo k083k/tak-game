@@ -47,29 +47,29 @@ export const RoundEndModal = ({ roundResult, onNextRound }) => {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", duration: 0.5 }}
-        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full p-8 border border-white/10"
+        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full p-4 md:p-8 border border-white/10 max-h-[90vh] overflow-y-auto"
       >
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="text-center mb-8"
+          className="text-center mb-4 md:mb-8"
         >
-          <div className="text-6xl mb-3">🎯</div>
-          <h2 className="text-4xl font-black text-white">
+          <div className="text-4xl md:text-6xl mb-2 md:mb-3">🎯</div>
+          <h2 className="text-2xl md:text-4xl font-black text-white">
             Round {roundResult.round} Complete
           </h2>
         </motion.div>
 
-        <div className="grid grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
           {/* Player 1 Results */}
           <motion.div
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="bg-white/5 backdrop-blur-sm p-6 rounded-2xl border border-white/10"
+            className="bg-white/5 backdrop-blur-sm p-4 md:p-6 rounded-2xl border border-white/10"
           >
-            <h3 className="text-xl font-bold text-white mb-4">{roundResult.player1.name}</h3>
+            <h3 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4">{roundResult.player1.name}</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-white/50">Round:</span>
@@ -93,9 +93,9 @@ export const RoundEndModal = ({ roundResult, onNextRound }) => {
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="bg-white/5 backdrop-blur-sm p-6 rounded-2xl border border-white/10"
+            className="bg-white/5 backdrop-blur-sm p-4 md:p-6 rounded-2xl border border-white/10"
           >
-            <h3 className="text-xl font-bold text-white mb-4">
+            <h3 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4">
               {roundResult.player2.name || 'Player 2'}
             </h3>
             <div className="space-y-3">

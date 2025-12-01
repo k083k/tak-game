@@ -34,7 +34,7 @@ export const CardInTransit = ({ card, from, to, onComplete, isHidden = false }) 
         animate={{ scale: 1.1, rotateY: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <CardComponent card={card} isHidden={isHidden} />
+        <CardComponent card={card} isHidden={isHidden} size="md" />
       </motion.div>
     </motion.div>
   );

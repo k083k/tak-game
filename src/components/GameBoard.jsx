@@ -6,6 +6,7 @@ import { CardValidator } from '../services/CardValidator';
 import { ScoreCalculator } from '../services/ScoreCalculator';
 import { ExitConfirmModal } from './ExitConfirmModal';
 import { PauseMenu } from './PauseMenu';
+import { HelpModal } from './HelpModal';
 
 /**
  * Main game board component - redesigned for single-page view
@@ -27,6 +28,7 @@ export const GameBoard = ({
 }) => {
   const [showExitModal, setShowExitModal] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [cardToMove, setCardToMove] = useState(null);
 
   // Clear cardToMove when player draws a card
@@ -103,29 +105,50 @@ export const GameBoard = ({
     return 'Draw a card';
   };
 
-  // Calculate responsive card sizing based on hand size
+  // Calculate responsive card sizing based on hand size and screen
   const getHandStyle = (handSize) => {
-    if (handSize <= 7) {
-      return { scale: 1, gap: 'gap-1.5', gapPx: 6 };
+    // Base card size depends on screen width (will use CSS responsive classes)
+    // Size hierarchy: xs (smallest), sm, md (default), lg (largest)
+    let cardSize = 'md';
+    let gap = 'gap-1.5';
+    let scale = 1;
+
+    // Adjust based on hand size - larger hands need smaller or overlapping cards
+    if (handSize <= 5) {
+      cardSize = 'md'; // Standard size for small hands
+      gap = 'gap-2';
+      scale = 1;
+    } else if (handSize <= 7) {
+      cardSize = 'md';
+      gap = 'gap-1.5';
+      scale = 1;
     } else if (handSize <= 10) {
-      return { scale: 0.95, gap: 'gap-1', gapPx: 4 };
+      cardSize = 'sm'; // Slightly smaller
+      gap = 'gap-1';
+      scale = 0.95;
     } else if (handSize <= 13) {
-      return { scale: 0.85, gap: 'gap-0.5', gapPx: 2 };
+      cardSize = 'sm';
+      gap = 'gap-0.5';
+      scale = 0.9;
     } else {
-      return { scale: 0.75, gap: 'gap-0.5', gapPx: 2 };
+      cardSize = 'xs'; // Smallest for very large hands
+      gap = 'gap-0';
+      scale = 0.85;
     }
+
+    return { cardSize, scale, gap, gapPx: gap === 'gap-2' ? 8 : gap === 'gap-1.5' ? 6 : gap === 'gap-1' ? 4 : gap === 'gap-0.5' ? 2 : 0 };
   };
 
   const playerHandStyle = getHandStyle(player1.getHand().length);
   const opponentHandStyle = getHandStyle(player2.getHand().length);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex">
-      {/* Left Side - Player 1 */}
-      <div className="w-48 flex flex-col items-center justify-center bg-black/20 border-r border-white/10 p-6">
-        <div className="text-center space-y-4">
+    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col md:flex-row">
+      {/* Left Side - Player 1 - Desktop: Sidebar, Mobile: Compact Header - Hidden on smallest screens */}
+      <div className="hidden min-h-[700px]:flex md:w-48 w-full md:h-full h-auto md:flex-col flex-row items-center justify-between md:justify-center bg-black/20 md:border-r border-b md:border-b-0 border-white/10 p-3 md:p-6">
+        <div className="flex md:flex-col flex-row items-center md:text-center gap-3 md:gap-4">
           {/* Avatar */}
-          <div className="w-20 h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-4xl">
+          <div className="w-12 h-12 md:w-20 md:h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-2xl md:text-4xl">
             {player1.avatar || '👤'}
           </div>
 
@@ -133,13 +156,13 @@ export const GameBoard = ({
           <div className="text-white/40 text-xs uppercase tracking-widest font-semibold">
             {player1.name}
           </div>
+        </div>
 
-          {/* Score */}
-          <div>
-            <div className="text-white/50 text-[10px] uppercase tracking-wider mb-1">Score</div>
-            <div className="text-6xl font-light tabular-nums text-white">
-              {player1.getTotalScore()}
-            </div>
+        {/* Score - More compact on mobile */}
+        <div className="md:mt-0">
+          <div className="text-white/50 text-[10px] uppercase tracking-wider mb-1 hidden md:block">Score</div>
+          <div className="text-3xl md:text-6xl font-light tabular-nums text-white">
+            {player1.getTotalScore()}
           </div>
         </div>
       </div>
@@ -147,20 +170,29 @@ export const GameBoard = ({
       {/* Center - Game Area */}
       <div className="flex-1 flex flex-col">
         {/* Round Info Bar */}
-        <div className="px-8 py-4 bg-black/20 border-b border-white/10 text-center relative">
-          <div className="text-white/90 text-sm font-medium tracking-wide">
+        <div className="px-3 md:px-8 py-3 md:py-4 bg-black/20 border-b border-white/10 text-center relative">
+          <div className="text-white/90 text-xs md:text-sm font-medium tracking-wide">
             Round <span className="font-bold">{gameEngine.currentRound}</span> of 13
-            <span className="mx-3 text-white/30">•</span>
+            <span className="mx-2 md:mx-3 text-white/30">•</span>
             Wild <span className="text-white/70 font-semibold">{getWildDisplay()}</span>
           </div>
 
-          {/* Pause & Exit Buttons */}
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+          {/* Help, Pause & Exit Buttons */}
+          <div className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 flex gap-1 md:gap-2">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowHelp(true)}
+              className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
+              title="Help"
+            >
+              ?
+            </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsPaused(true)}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
+              className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
               title="Pause Game"
             >
               ⏸
@@ -169,7 +201,7 @@ export const GameBoard = ({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowExitModal(true)}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors"
+              className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors"
               title="Exit Game"
             >
               ✕
@@ -178,7 +210,7 @@ export const GameBoard = ({
         </div>
 
         {/* Main Game Area */}
-        <div className="flex-1 flex flex-col justify-between p-6 relative">
+        <div className="flex-1 flex flex-col justify-between p-2 md:p-6 relative">
         {/* Opponent's Hand - Compact at Top */}
         <div className="flex justify-center">
           <motion.div
@@ -198,6 +230,7 @@ export const GameBoard = ({
                   card={card}
                   isHidden={gameMode === 'pvc' && !gameEngine.isRoundOver()}
                   isWild={CardValidator.isWildCard(card, wildRank)}
+                  size={opponentHandStyle.cardSize}
                 />
               </motion.div>
             ))}
@@ -215,20 +248,20 @@ export const GameBoard = ({
               style={{ perspective: '1000px' }}
             >
               {/* 3D Stacked Cards Effect */}
-              <div className="relative w-28 h-40" onClick={() => canDrawFromDeck && onDrawCard(false)}>
+              <div className="relative w-20 h-28" onClick={() => canDrawFromDeck && onDrawCard(false)}>
                 {/* Back cards creating depth */}
-                <div className="absolute w-28 h-40 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
+                <div className="absolute w-20 h-28 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
                   style={{ transform: 'translateY(-6px) translateX(-3px) rotateX(2deg)', zIndex: 1 }}
                 ></div>
-                <div className="absolute w-28 h-40 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
+                <div className="absolute w-20 h-28 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
                   style={{ transform: 'translateY(-4px) translateX(-2px) rotateX(1deg)', zIndex: 2 }}
                 ></div>
-                <div className="absolute w-28 h-40 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
+                <div className="absolute w-20 h-28 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
                   style={{ transform: 'translateY(-2px) translateX(-1px)', zIndex: 3 }}
                 ></div>
 
                 {/* Top card with design */}
-                <div className="absolute w-28 h-40 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-xl cursor-pointer"
+                <div className="absolute w-20 h-28 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-xl cursor-pointer"
                   style={{ zIndex: 4 }}
                 >
                   {/* Decorative pattern matching card backs */}
@@ -303,13 +336,19 @@ export const GameBoard = ({
             )}
           </div>
 
-          {/* Discard Pile */}
+          {/* Discard Pile - Click to draw or discard */}
           <div className="flex flex-col items-center gap-4">
             <motion.div
-              className="relative"
-              whileHover={{ scale: (hasDrawn && selectedCardIndex !== null) || canDrawFromDiscard ? 1.02 : 1 }}
+              className={`relative ${canDrawFromDiscard || (hasDrawn && selectedCardIndex !== null) ? 'cursor-pointer' : ''}`}
+              whileHover={{ scale: (hasDrawn && selectedCardIndex !== null) || canDrawFromDiscard ? 1.05 : 1 }}
               transition={{ duration: 0.2 }}
-              onClick={handleDiscardClick}
+              onClick={() => {
+                if (canDrawFromDiscard) {
+                  onDrawCard(true);
+                } else if (hasDrawn && selectedCardIndex !== null) {
+                  handleDiscardClick();
+                }
+              }}
             >
               <AnimatePresence mode="wait">
                 {topDiscard ? (
@@ -323,26 +362,24 @@ export const GameBoard = ({
                     <CardComponent
                       card={topDiscard}
                       isWild={CardValidator.isWildCard(topDiscard, wildRank)}
+                      size="md"
                     />
                   </motion.div>
                 ) : (
-                  <div className="w-28 h-40 rounded-xl border-4 border-dashed border-white/20 bg-white/5 flex items-center justify-center">
+                  <div className="w-20 h-28 rounded-xl border-4 border-dashed border-white/20 bg-white/5 flex items-center justify-center">
                     <span className="text-white/40 text-xs font-semibold">DISCARD</span>
                   </div>
                 )}
               </AnimatePresence>
             </motion.div>
             {canDrawFromDiscard && (
-              <motion.button
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => onDrawCard(true)}
-                className="px-3 py-1.5 bg-white/10 text-white/80 rounded-lg font-medium text-xs hover:bg-white/20 transition-colors border border-white/20"
+                className="text-white/60 text-sm"
               >
-                Draw
-              </motion.button>
+                Click to draw
+              </motion.div>
             )}
           </div>
         </div>
@@ -386,6 +423,7 @@ export const GameBoard = ({
                       card={card}
                       isWild={CardValidator.isWildCard(card, wildRank)}
                       isSelected={isSelectedForDiscard}
+                      size={playerHandStyle.cardSize}
                     />
                   </motion.div>
                 );
@@ -424,11 +462,11 @@ export const GameBoard = ({
         </div>
       </div>
 
-      {/* Right Side - Player 2 */}
-      <div className="w-48 flex flex-col items-center justify-center bg-black/20 border-l border-white/10 p-6">
-        <div className="text-center space-y-4">
+      {/* Right Side - Player 2 - Desktop: Sidebar, Mobile: Compact Footer - Hidden on smallest screens */}
+      <div className="hidden min-h-[700px]:flex md:w-48 w-full md:h-full h-auto md:flex-col flex-row items-center justify-between md:justify-center bg-black/20 md:border-l border-t md:border-t-0 border-white/10 p-3 md:p-6">
+        <div className="flex md:flex-col flex-row items-center md:text-center gap-3 md:gap-4">
           {/* Avatar */}
-          <div className="w-20 h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-4xl">
+          <div className="w-12 h-12 md:w-20 md:h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-2xl md:text-4xl">
             {player2.avatar || '🤖'}
           </div>
 
@@ -436,16 +474,23 @@ export const GameBoard = ({
           <div className="text-white/40 text-xs uppercase tracking-widest font-semibold">
             {player2.name}
           </div>
+        </div>
 
-          {/* Score */}
-          <div>
-            <div className="text-white/50 text-[10px] uppercase tracking-wider mb-1">Score</div>
-            <div className="text-6xl font-light tabular-nums text-white">
-              {player2.getTotalScore()}
-            </div>
+        {/* Score - More compact on mobile */}
+        <div className="md:mt-0">
+          <div className="text-white/50 text-[10px] uppercase tracking-wider mb-1 hidden md:block">Score</div>
+          <div className="text-3xl md:text-6xl font-light tabular-nums text-white">
+            {player2.getTotalScore()}
           </div>
         </div>
       </div>
+
+      {/* Help Modal */}
+      <AnimatePresence>
+        {showHelp && (
+          <HelpModal onClose={() => setShowHelp(false)} />
+        )}
+      </AnimatePresence>
 
       {/* Pause Menu */}
       <AnimatePresence>
