@@ -1,0 +1,142 @@
+import { useState, useEffect } from 'react';
+import { useGameState } from './hooks/useGameState';
+import { SetupScreen } from './components/SetupScreen';
+import { GameBoard } from './components/GameBoard';
+import { RoundEndModal } from './components/RoundEndModal';
+import { GameOverModal } from './components/GameOverModal';
+import { ResumeGameModal } from './components/ResumeGameModal';
+import { Toaster } from 'react-hot-toast';
+
+/**
+ * Main application component
+ */
+function App() {
+  const {
+    gameMode,
+    setGameMode,
+    difficulty,
+    setDifficulty,
+    playerName,
+    setPlayerName,
+    playerAvatar,
+    setPlayerAvatar,
+    gameEngine,
+    gameState,
+    selectedCardIndex,
+    setSelectedCardIndex,
+    hasDrawn,
+    roundResult,
+    knockCountdown,
+    transitCard,
+    startNewGame,
+    startNextRound,
+    drawCard,
+    discardCard,
+    knock,
+    returnToSetup,
+    reorderHand,
+    loadSavedGame,
+    hasSavedGame
+  } = useGameState();
+
+  const [showResumeModal, setShowResumeModal] = useState(false);
+
+  // Check for saved game on mount
+  useEffect(() => {
+    if (hasSavedGame()) {
+      setShowResumeModal(true);
+    }
+  }, [hasSavedGame]);
+
+  // Handle resume game
+  const handleResumeGame = () => {
+    const success = loadSavedGame();
+    if (success) {
+      setShowResumeModal(false);
+    }
+  };
+
+  // Handle start new game (discard saved game)
+  const handleStartNew = () => {
+    setShowResumeModal(false);
+  };
+
+  return (
+    <div className="min-h-screen">
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            fontSize: '16px',
+            fontWeight: '600',
+            padding: '16px',
+            borderRadius: '12px',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
+      {gameState === 'setup' && (
+        <SetupScreen
+          gameMode={gameMode}
+          setGameMode={setGameMode}
+          difficulty={difficulty}
+          setDifficulty={setDifficulty}
+          playerName={playerName}
+          setPlayerName={setPlayerName}
+          playerAvatar={playerAvatar}
+          setPlayerAvatar={setPlayerAvatar}
+          onStartGame={startNewGame}
+        />
+      )}
+
+      {gameState === 'playing' && (
+        <GameBoard
+          gameEngine={gameEngine}
+          selectedCardIndex={selectedCardIndex}
+          setSelectedCardIndex={setSelectedCardIndex}
+          hasDrawn={hasDrawn}
+          knockCountdown={knockCountdown}
+          transitCard={transitCard}
+          onDrawCard={drawCard}
+          onDiscardCard={discardCard}
+          onKnock={knock}
+          onReorderHand={reorderHand}
+          onExit={returnToSetup}
+          gameMode={gameMode}
+          difficulty={difficulty}
+        />
+      )}
+
+      {gameState === 'round-end' && (
+        <RoundEndModal
+          roundResult={roundResult}
+          onNextRound={startNextRound}
+        />
+      )}
+
+      {gameState === 'game-over' && (
+        <GameOverModal
+          gameEngine={gameEngine}
+          onNewGame={returnToSetup}
+        />
+      )}
+
+      {showResumeModal && (
+        <ResumeGameModal
+          onResume={handleResumeGame}
+          onStartNew={handleStartNew}
+        />
+      )}
+    </div>
+  );
+}
+
+export default App;
