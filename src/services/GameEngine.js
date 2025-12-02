@@ -169,9 +169,9 @@ export class GameEngine {
       }
     };
 
-    // Move to next round
-    this.currentRound++;
-    if (this.currentRound > GameEngine.MAX_ROUNDS) {
+    // Don't increment round here - let it happen when starting next round
+    // Check if game will be over after this round
+    if (this.currentRound >= GameEngine.MAX_ROUNDS) {
       this.gameOver = true;
     }
 

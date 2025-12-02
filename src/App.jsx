@@ -4,7 +4,6 @@ import { useGameState } from './hooks/useGameState';
 import { useScreenSize } from './hooks/useScreenSize';
 import { SetupScreen } from './components/SetupScreen';
 import { GameBoard } from './components/GameBoard';
-import { RoundEndModal } from './components/RoundEndModal';
 import { GameOverModal } from './components/GameOverModal';
 import { ResumeGameModal } from './components/ResumeGameModal';
 import { ScreenSizeWarning } from './components/ScreenSizeWarning';
@@ -28,7 +27,6 @@ function App() {
     selectedCardIndex,
     setSelectedCardIndex,
     hasDrawn,
-    roundResult,
     knockCountdown,
     transitCard,
     startNewGame,
@@ -107,7 +105,7 @@ function App() {
         />
       )}
 
-      {gameState === 'playing' && (
+      {(gameState === 'playing' || gameState === 'round-end') && (
         <GameBoard
           gameEngine={gameEngine}
           selectedCardIndex={selectedCardIndex}
@@ -120,15 +118,10 @@ function App() {
           onKnock={knock}
           onReorderHand={reorderHand}
           onExit={returnToSetup}
+          onNextRound={startNextRound}
           gameMode={gameMode}
           difficulty={difficulty}
-        />
-      )}
-
-      {gameState === 'round-end' && (
-        <RoundEndModal
-          roundResult={roundResult}
-          onNextRound={startNextRound}
+          showRoundResults={gameState === 'round-end'}
         />
       )}
 

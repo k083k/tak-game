@@ -304,6 +304,8 @@ export const useGameState = () => {
       return;
     }
 
+    // Increment round before starting next round
+    gameEngine.currentRound++;
     gameEngine.startRound();
     setGameState('playing');
     setSelectedCardIndex(null);

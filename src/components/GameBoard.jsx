@@ -23,8 +23,10 @@ export const GameBoard = ({
   onKnock,
   onReorderHand,
   onExit,
+  onNextRound,
   gameMode,
-  difficulty
+  difficulty,
+  showRoundResults = false
 }) => {
   const [showExitModal, setShowExitModal] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -222,13 +224,16 @@ export const GameBoard = ({
             {player2.getHand().map((card, index) => (
               <motion.div
                 key={index}
-                initial={{ scale: 0, rotateY: 180 }}
-                animate={{ scale: opponentHandStyle.scale, rotateY: 0 }}
+                initial={{ scale: 0, rotateY: showRoundResults ? 180 : 0 }}
+                animate={{
+                  scale: opponentHandStyle.scale,
+                  rotateY: 0
+                }}
                 transition={{ delay: index * 0.1, duration: 0.3 }}
               >
                 <CardComponent
                   card={card}
-                  isHidden={gameMode === 'pvc' && !gameEngine.isRoundOver()}
+                  isHidden={gameMode === 'pvc' && !showRoundResults}
                   isWild={CardValidator.isWildCard(card, wildRank)}
                   size={opponentHandStyle.cardSize}
                 />
@@ -237,8 +242,98 @@ export const GameBoard = ({
           </motion.div>
         </div>
 
-        {/* Center Table - Deck & Discard */}
-        <div className="flex items-center justify-center gap-16">
+        {/* Center Table - Deck & Discard OR Round Results */}
+        {showRoundResults ? (
+          /* Round Results Display */
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="flex items-center justify-center"
+          >
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 max-w-2xl">
+              {/* Round End Title */}
+              <h2 className="text-2xl md:text-3xl font-black text-white text-center mb-6">
+                Round {gameEngine.currentRound} Complete
+              </h2>
+
+              {/* Player Scores */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Player 1 */}
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="text-2xl">{player1.avatar || '👤'}</div>
+                    <div>
+                      <div className="text-white font-semibold">{player1.name}</div>
+                      {hasKnocked && gameEngine.knockedPlayerIndex === 0 && (
+                        <div className="text-xs text-amber-400">👊 Knocked</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-3xl font-bold text-white">
+                    {player1.roundScores[gameEngine.currentRound - 1] || 0} pts
+                  </div>
+                </div>
+
+                {/* Player 2 */}
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="text-2xl">{player2.avatar || '🤖'}</div>
+                    <div>
+                      <div className="text-white font-semibold">{player2.name}</div>
+                      {hasKnocked && gameEngine.knockedPlayerIndex === 1 && (
+                        <div className="text-xs text-amber-400">👊 Knocked</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-3xl font-bold text-white">
+                    {player2.roundScores[gameEngine.currentRound - 1] || 0} pts
+                  </div>
+                </div>
+              </div>
+
+              {/* Round Winner */}
+              <div className="text-center mb-6">
+                <div className="text-white/60 text-sm mb-2">Round Winner</div>
+                <div className="text-2xl font-bold text-white">
+                  {(() => {
+                    const p1Score = player1.roundScores[gameEngine.currentRound - 1] || 0;
+                    const p2Score = player2.roundScores[gameEngine.currentRound - 1] || 0;
+
+                    if (p1Score < p2Score) return `${player1.name} 🎉`;
+                    if (p2Score < p1Score) return `${player2.name} 🎉`;
+                    // If scores are equal, it's a tie
+                    return "It's a Tie! 🤝";
+                  })()}
+                </div>
+              </div>
+
+              {/* Total Scores */}
+              <div className="grid grid-cols-2 gap-4 mb-6 text-center">
+                <div>
+                  <div className="text-white/60 text-xs mb-1">Total Score</div>
+                  <div className="text-xl font-bold text-white">{player1.getTotalScore()}</div>
+                </div>
+                <div>
+                  <div className="text-white/60 text-xs mb-1">Total Score</div>
+                  <div className="text-xl font-bold text-white">{player2.getTotalScore()}</div>
+                </div>
+              </div>
+
+              {/* Next Round Button */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onNextRound}
+                className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-white/90 transition-colors"
+              >
+                {gameEngine.currentRound < 13 ? 'NEXT ROUND' : 'VIEW FINAL RESULTS'}
+              </motion.button>
+            </div>
+          </motion.div>
+        ) : (
+          /* Normal Gameplay - Deck & Discard */
+          <div className="flex items-center justify-center gap-16">
           {/* Deck */}
           <div className="flex flex-col items-center gap-4">
             <motion.div
@@ -383,6 +478,8 @@ export const GameBoard = ({
             )}
           </div>
         </div>
+        )}
+        {/* End of Center Table conditional */}
 
         {/* Player's Hand - Bottom */}
         <div className="flex flex-col items-center gap-4">
