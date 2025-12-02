@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { useGameState } from './hooks/useGameState';
 import { useScreenSize } from './hooks/useScreenSize';
 import { SetupScreen } from './components/SetupScreen';
@@ -71,6 +72,7 @@ function App() {
 
   return (
     <div className="min-h-screen">
+      <Analytics />
       <Toaster
         position="top-center"
         toastOptions={{
