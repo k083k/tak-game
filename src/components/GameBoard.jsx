@@ -345,47 +345,35 @@ export const GameBoard = ({
               {/* 3D Stacked Cards Effect */}
               <div className="relative w-20 h-28" onClick={() => canDrawFromDeck && onDrawCard(false)}>
                 {/* Back cards creating depth */}
-                <div className="absolute w-20 h-28 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
+                <div className="absolute w-20 h-28 rounded-lg shadow-lg"
                   style={{ transform: 'translateY(-6px) translateX(-3px) rotateX(2deg)', zIndex: 1 }}
-                ></div>
-                <div className="absolute w-20 h-28 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
+                >
+                  <img src="/cards/back-black.png" alt="Card back" className="w-full h-full object-cover rounded-lg" draggable="false" />
+                </div>
+                <div className="absolute w-20 h-28 rounded-lg shadow-lg"
                   style={{ transform: 'translateY(-4px) translateX(-2px) rotateX(1deg)', zIndex: 2 }}
-                ></div>
-                <div className="absolute w-20 h-28 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-lg"
+                >
+                  <img src="/cards/back-black.png" alt="Card back" className="w-full h-full object-cover rounded-lg" draggable="false" />
+                </div>
+                <div className="absolute w-20 h-28 rounded-lg shadow-lg"
                   style={{ transform: 'translateY(-2px) translateX(-1px)', zIndex: 3 }}
-                ></div>
+                >
+                  <img src="/cards/back-black.png" alt="Card back" className="w-full h-full object-cover rounded-lg" draggable="false" />
+                </div>
 
-                {/* Top card with design */}
-                <div className="absolute w-20 h-28 rounded-xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 border-2 border-purple-900 shadow-xl cursor-pointer"
+                {/* Top card */}
+                <div className="absolute w-20 h-28 rounded-lg shadow-xl cursor-pointer"
                   style={{ zIndex: 4 }}
                 >
-                  {/* Decorative pattern matching card backs */}
-                  <div className="absolute inset-0 rounded-xl overflow-hidden">
-                    <div className="absolute inset-2 border-2 border-white/30 rounded-md"></div>
-                    <div className="absolute inset-3 border border-white/20 rounded-md"></div>
-
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="relative w-16 h-16">
-                        <div className="absolute inset-0 rotate-45 border-2 border-white/40 rounded-lg"></div>
-                        <div className="absolute inset-2 rotate-45 border border-white/30 rounded-md"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white/20 rounded-full"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white/40 rounded-full"></div>
-                      </div>
-                    </div>
-
-                    <div className="absolute top-1 left-1 w-4 h-4 border-t-2 border-l-2 border-white/30"></div>
-                    <div className="absolute top-1 right-1 w-4 h-4 border-t-2 border-r-2 border-white/30"></div>
-                    <div className="absolute bottom-1 left-1 w-4 h-4 border-b-2 border-l-2 border-white/30"></div>
-                    <div className="absolute bottom-1 right-1 w-4 h-4 border-b-2 border-r-2 border-white/30"></div>
-                  </div>
-
-                  {/* Card count badge */}
-                  {deckHasCards && (
-                    <div className="absolute -top-2 -right-2 bg-white text-slate-900 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-lg" style={{ zIndex: 5 }}>
-                      {gameEngine.deck.getCardCount()}
-                    </div>
-                  )}
+                  <img src="/cards/back-black.png" alt="Card back" className="w-full h-full object-cover rounded-lg" draggable="false" />
                 </div>
+
+                {/* Card count badge - positioned outside the card div */}
+                {deckHasCards && (
+                  <div className="absolute -top-2 -right-2 bg-white text-slate-900 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-lg" style={{ zIndex: 5 }}>
+                    {gameEngine.deck.getCardCount()}
+                  </div>
+                )}
               </div>
             </motion.div>
             {canDrawFromDeck && (
