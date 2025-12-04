@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardComponent } from './CardComponent';
-import { CardInTransit } from './CardInTransit';
 import { CardValidator } from '../services/CardValidator';
 import { ScoreCalculator } from '../services/ScoreCalculator';
 import { ExitConfirmModal } from './ExitConfirmModal';
@@ -17,7 +16,6 @@ export const GameBoard = ({
   setSelectedCardIndex,
   hasDrawn,
   knockCountdown,
-  transitCard,
   onDrawCard,
   onDiscardCard,
   onKnock,
@@ -32,6 +30,10 @@ export const GameBoard = ({
   const [isPaused, setIsPaused] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [cardToMove, setCardToMove] = useState(null);
+  const [player1CarouselIndex, setPlayer1CarouselIndex] = useState(0);
+  const [player2CarouselIndex, setPlayer2CarouselIndex] = useState(0);
+  const [draggedCard, setDraggedCard] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
 
   // Clear cardToMove when player draws a card
   useEffect(() => {
@@ -39,6 +41,38 @@ export const GameBoard = ({
       setCardToMove(null);
     }
   }, [hasDrawn, cardToMove]);
+
+  // Reset carousel indices when round results are shown
+  useEffect(() => {
+    if (showRoundResults) {
+      setPlayer1CarouselIndex(0);
+      setPlayer2CarouselIndex(0);
+    }
+  }, [showRoundResults]);
+
+  // Auto-cycle carousel every 3 seconds when showing round results
+  useEffect(() => {
+    if (!showRoundResults) return;
+
+    const interval = setInterval(() => {
+      const player1Result = ScoreCalculator.calculateScore(player1.getHand(), wildRank);
+      const player1Groups = [...player1Result.combinations];
+      if (player1Result.remaining.length > 0) {
+        player1Groups.push({ type: 'unmatched', cards: player1Result.remaining });
+      }
+
+      const player2Result = ScoreCalculator.calculateScore(player2.getHand(), wildRank);
+      const player2Groups = [...player2Result.combinations];
+      if (player2Result.remaining.length > 0) {
+        player2Groups.push({ type: 'unmatched', cards: player2Result.remaining });
+      }
+
+      setPlayer1CarouselIndex((prev) => (prev + 1) % Math.max(1, player1Groups.length));
+      setPlayer2CarouselIndex((prev) => (prev + 1) % Math.max(1, player2Groups.length));
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [showRoundResults, gameEngine]);
 
   if (!gameEngine) return null;
 
@@ -107,85 +141,106 @@ export const GameBoard = ({
     return 'Draw a card';
   };
 
-  // Calculate responsive card sizing based on hand size and screen
-  const getHandStyle = (handSize) => {
-    // Base card size depends on screen width (will use CSS responsive classes)
-    // Size hierarchy: xs (smallest), sm, md (default), lg (largest)
-    let cardSize = 'md';
-    let gap = 'gap-1.5';
-    let scale = 1;
-
-    // Adjust based on hand size - larger hands need smaller or overlapping cards
-    if (handSize <= 5) {
-      cardSize = 'md'; // Standard size for small hands
-      gap = 'gap-2';
-      scale = 1;
-    } else if (handSize <= 7) {
-      cardSize = 'md';
-      gap = 'gap-1.5';
-      scale = 1;
-    } else if (handSize <= 10) {
-      cardSize = 'sm'; // Slightly smaller
-      gap = 'gap-1';
-      scale = 0.95;
-    } else if (handSize <= 13) {
-      cardSize = 'sm';
-      gap = 'gap-0.5';
-      scale = 0.9;
-    } else {
-      cardSize = 'xs'; // Smallest for very large hands
-      gap = 'gap-0';
-      scale = 0.85;
-    }
-
-    return { cardSize, scale, gap, gapPx: gap === 'gap-2' ? 8 : gap === 'gap-1.5' ? 6 : gap === 'gap-1' ? 4 : gap === 'gap-0.5' ? 2 : 0 };
+  // Calculate how to split cards into rows for vertical layout (up to 4 rows)
+  // Max 13 cards in hand (Round 11)
+  const getRowDistribution = (handSize) => {
+    if (handSize <= 3) return [handSize];
+    if (handSize === 4) return [2, 2];
+    if (handSize === 5) return [3, 2];
+    if (handSize === 6) return [3, 3];
+    if (handSize === 7) return [4, 3];
+    if (handSize === 8) return [3, 3, 2];
+    if (handSize === 9) return [3, 3, 3];
+    if (handSize === 10) return [3, 3, 2, 2];
+    if (handSize === 11) return [3, 3, 3, 2];
+    if (handSize === 12) return [3, 3, 3, 3];
+    if (handSize === 13) return [4, 4, 3, 2];
+    if (handSize >= 14) return [4, 4, 4, 2]; // Max hand size (after drawing in Round 11)
+    return [handSize];
   };
 
-  const playerHandStyle = getHandStyle(player1.getHand().length);
-  const opponentHandStyle = getHandStyle(player2.getHand().length);
+  // Split hand into rows based on distribution
+  const splitIntoRows = (hand) => {
+    const distribution = getRowDistribution(hand.length);
+    const rows = [];
+    let startIndex = 0;
+
+    for (const rowSize of distribution) {
+      rows.push(hand.slice(startIndex, startIndex + rowSize));
+      startIndex += rowSize;
+    }
+
+    return rows;
+  };
+
+  const opponentRows = splitIntoRows(player2.getHand());
+  const playerRows = splitIntoRows(player1.getHand());
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col md:flex-row">
-      {/* Left Side - Player 1 - Desktop: Sidebar, Mobile: Compact Header - Hidden on smallest screens */}
-      <div className="hidden min-h-[700px]:flex md:w-48 w-full md:h-full h-auto md:flex-col flex-row items-center justify-between md:justify-center bg-black/20 md:border-r border-b md:border-b-0 border-white/10 p-3 md:p-6">
-        <div className="flex md:flex-col flex-row items-center md:text-center gap-3 md:gap-4">
-          {/* Avatar */}
-          <div className="w-12 h-12 md:w-20 md:h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-2xl md:text-4xl">
-            {player1.avatar || '👤'}
+    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex flex-row">
+      {/* Left Side - Opponent Hand (Vertical) */}
+      <div className="w-80 h-full flex flex-col items-center justify-center bg-black/20 border-r border-white/10 p-2 gap-3">
+        {/* Opponent info header */}
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-2xl">
+            {player2.avatar || '🤖'}
           </div>
-
-          {/* Name */}
-          <div className="text-white/40 text-xs uppercase tracking-widest font-semibold">
-            {player1.name}
+          <div className="text-white/40 text-[10px] uppercase tracking-wider text-center">
+            {player2.name}
+          </div>
+          <div className="text-xl font-bold text-white">
+            {player2.getTotalScore()}
           </div>
         </div>
 
-        {/* Score - More compact on mobile */}
-        <div className="md:mt-0">
-          <div className="text-white/50 text-[10px] uppercase tracking-wider mb-1 hidden md:block">Score</div>
-          <div className="text-3xl md:text-6xl font-light tabular-nums text-white">
-            {player1.getTotalScore()}
-          </div>
+        {/* Opponent Hand - Multi-row Layout with Overlapping Cards */}
+        <div className="flex flex-col gap-2 items-center flex-1 justify-center overflow-y-auto overflow-x-hidden">
+          {opponentRows.map((row, rowIndex) => (
+            <div key={rowIndex} className="flex">
+              {row.map((card, cardIndex) => {
+                const globalIndex = opponentRows.slice(0, rowIndex).reduce((sum, r) => sum + r.length, 0) + cardIndex;
+                return (
+                  <motion.div
+                    key={globalIndex}
+                    initial={{ scale: 0, rotateY: showRoundResults ? 180 : 0 }}
+                    animate={{
+                      scale: 1,
+                      rotateY: 0
+                    }}
+                    transition={{ delay: globalIndex * 0.05, duration: 0.3 }}
+                    style={{ marginLeft: cardIndex === 0 ? '0' : '-16px' }}
+                  >
+                    <CardComponent
+                      card={card}
+                      isHidden={gameMode === 'pvc' && !showRoundResults}
+                      isWild={CardValidator.isWildCard(card, wildRank)}
+                      size="sm"
+                    />
+                  </motion.div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Center - Game Area */}
       <div className="flex-1 flex flex-col">
         {/* Round Info Bar */}
-        <div className="px-3 md:px-8 py-3 md:py-4 bg-black/20 border-b border-white/10 text-center relative">
-          <div className="text-white/90 text-xs md:text-sm font-medium tracking-wide">
-            Round <span className="font-bold">{gameEngine.currentRound}</span> of 13
-            <span className="mx-2 md:mx-3 text-white/30">•</span>
+        <div className="px-4 py-3 bg-black/20 border-b border-white/10 text-center relative">
+          <div className="text-white/90 text-sm font-medium tracking-wide">
+            Round <span className="font-bold">{gameEngine.currentRound}</span> of 11
+            <span className="mx-3 text-white/30">•</span>
             Wild <span className="text-white/70 font-semibold">{getWildDisplay()}</span>
           </div>
 
           {/* Help, Pause & Exit Buttons */}
-          <div className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 flex gap-1 md:gap-2">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowHelp(true)}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
+              className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
               title="Help"
             >
               ?
@@ -194,7 +249,7 @@ export const GameBoard = ({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsPaused(true)}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
+              className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
               title="Pause Game"
             >
               ⏸
@@ -203,7 +258,7 @@ export const GameBoard = ({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowExitModal(true)}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors"
+              className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors"
               title="Exit Game"
             >
               ✕
@@ -212,36 +267,7 @@ export const GameBoard = ({
         </div>
 
         {/* Main Game Area */}
-        <div className="flex-1 flex flex-col justify-between p-2 md:p-6 relative">
-        {/* Opponent's Hand - Compact at Top */}
-        <div className="flex justify-center">
-          <motion.div
-            className={`flex ${opponentHandStyle.gap}`}
-            initial={{ y: -50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            {player2.getHand().map((card, index) => (
-              <motion.div
-                key={index}
-                initial={{ scale: 0, rotateY: showRoundResults ? 180 : 0 }}
-                animate={{
-                  scale: opponentHandStyle.scale,
-                  rotateY: 0
-                }}
-                transition={{ delay: index * 0.1, duration: 0.3 }}
-              >
-                <CardComponent
-                  card={card}
-                  isHidden={gameMode === 'pvc' && !showRoundResults}
-                  isWild={CardValidator.isWildCard(card, wildRank)}
-                  size={opponentHandStyle.cardSize}
-                />
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-
+        <div className="flex-1 flex flex-col justify-center p-2 md:p-6 relative">
         {/* Center Table - Deck & Discard OR Round Results */}
         {showRoundResults ? (
           /* Round Results Display */
@@ -251,44 +277,191 @@ export const GameBoard = ({
             transition={{ duration: 0.5 }}
             className="flex items-center justify-center"
           >
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 max-w-2xl">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 w-full max-w-[90vw]">
               {/* Round End Title */}
               <h2 className="text-2xl md:text-3xl font-black text-white text-center mb-6">
                 Round {gameEngine.currentRound} Complete
               </h2>
 
               {/* Player Scores */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {/* Player 1 */}
-                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="text-2xl">{player1.avatar || '👤'}</div>
-                    <div>
-                      <div className="text-white font-semibold">{player1.name}</div>
-                      {hasKnocked && gameEngine.knockedPlayerIndex === 0 && (
-                        <div className="text-xs text-amber-400">👊 Knocked</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-3xl font-bold text-white">
-                    {player1.roundScores[gameEngine.currentRound - 1] || 0} pts
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-2 gap-4 mb-6">
                 {/* Player 2 */}
-                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="text-2xl">{player2.avatar || '🤖'}</div>
-                    <div>
-                      <div className="text-white font-semibold">{player2.name}</div>
-                      {hasKnocked && gameEngine.knockedPlayerIndex === 1 && (
-                        <div className="text-xs text-amber-400">👊 Knocked</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-3xl font-bold text-white">
-                    {player2.roundScores[gameEngine.currentRound - 1] || 0} pts
-                  </div>
+                <div className="bg-white/5 rounded-xl p-6 border border-white/10 min-h-[280px]">
+                  {(() => {
+                    const player2Result = ScoreCalculator.calculateScore(player2.getHand(), wildRank);
+                    const player2Groups = [...player2Result.combinations];
+                    if (player2Result.remaining.length > 0) {
+                      player2Groups.push({ type: 'unmatched', cards: player2Result.remaining });
+                    }
+
+                    if (player2Groups.length === 0) {
+                      return (
+                        <div className="flex flex-col gap-4 h-full">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="text-2xl">{player2.avatar || '🤖'}</div>
+                              <div className="text-white font-semibold text-sm">{player2.name}</div>
+                            </div>
+                            <div className="text-xl font-bold text-white">
+                              {player2.roundScores[gameEngine.currentRound - 1] || 0} pts
+                            </div>
+                          </div>
+                          <div className="flex-1 flex items-center justify-center text-white/60">Perfect hand!</div>
+                        </div>
+                      );
+                    }
+
+                    // Ensure carousel index is within bounds
+                    const safePlayer2Index = Math.min(player2CarouselIndex, player2Groups.length - 1);
+                    const currentGroup = player2Groups[safePlayer2Index];
+                    const isUnmatched = currentGroup?.type === 'unmatched';
+
+                    return (
+                      <div className="flex flex-col gap-4 h-full">
+                        {/* Row 1: Avatar+Name on left, Points on right */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="text-2xl">{player2.avatar || '🤖'}</div>
+                            <div>
+                              <div className="text-white font-semibold text-sm">{player2.name} {hasKnocked && gameEngine.knockedPlayerIndex === 1 && (
+                                <span className="text-xs text-amber-400 ml-1">👊</span>
+                              )}</div>
+                            </div>
+                          </div>
+                          <div className="text-2xl font-bold text-white">
+                            {player2.roundScores[gameEngine.currentRound - 1] || 0} pts
+                          </div>
+                        </div>
+
+                        {/* Row 2: Icon + Cards centered */}
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+                          {/* Status Icon - Above Cards */}
+                          <div className={`text-lg ${isUnmatched ? 'text-red-500' : 'text-green-500'}`}>
+                            {isUnmatched ? '✗' : '✓'}
+                          </div>
+
+                          {/* Cards */}
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={safePlayer2Index}
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -20 }}
+                              transition={{ duration: 0.3 }}
+                              className="flex gap-1"
+                            >
+                              {currentGroup.cards.map((card, cardIdx) => (
+                                <div key={cardIdx} className="w-8 h-11 shrink-0">
+                                  <CardComponent card={card} size="xs" isWild={CardValidator.isWildCard(card, wildRank)} />
+                                </div>
+                              ))}
+                            </motion.div>
+                          </AnimatePresence>
+                        </div>
+
+                        {/* Row 3: Indicator Dots centered */}
+                        <div className="flex justify-center gap-1.5">
+                          {player2Groups.map((_, idx) => (
+                            <div
+                              key={idx}
+                              className={`w-2 h-2 rounded-full transition-colors ${
+                                idx === player2CarouselIndex ? 'bg-white' : 'bg-white/30'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+                {/* Player 1 */}
+                <div className="bg-white/5 rounded-xl p-6 border border-white/10 min-h-[280px]">
+                  {(() => {
+                    const player1Result = ScoreCalculator.calculateScore(player1.getHand(), wildRank);
+                    const player1Groups = [...player1Result.combinations];
+                    if (player1Result.remaining.length > 0) {
+                      player1Groups.push({ type: 'unmatched', cards: player1Result.remaining });
+                    }
+
+                    if (player1Groups.length === 0) {
+                      return (
+                        <div className="flex flex-col gap-4 h-full">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="text-2xl">{player1.avatar || '👤'}</div>
+                              <div className="text-white font-semibold text-sm">{player1.name}</div>
+                            </div>
+                            <div className="text-xl font-bold text-white">
+                              {player1.roundScores[gameEngine.currentRound - 1] || 0} pts
+                            </div>
+                          </div>
+                          <div className="flex-1 flex items-center justify-center text-white/60">Perfect hand!</div>
+                        </div>
+                      );
+                    }
+
+                    // Ensure carousel index is within bounds
+                    const safePlayer1Index = Math.min(player1CarouselIndex, player1Groups.length - 1);
+                    const currentGroup = player1Groups[safePlayer1Index];
+                    const isUnmatched = currentGroup?.type === 'unmatched';
+
+                    return (
+                      <div className="flex flex-col gap-4 h-full">
+                        {/* Row 1: Avatar+Name on left, Points on right */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="text-2xl">{player1.avatar || '👤'}</div>
+                            <div>
+                              <div className="text-white font-semibold text-sm">{player1.name} {hasKnocked && gameEngine.knockedPlayerIndex === 0 && (
+                                <span className="text-xs text-amber-400 ml-1">👊</span>
+                              )}</div>
+                            </div>
+                          </div>
+                          <div className="text-2xl font-bold text-white">
+                            {player1.roundScores[gameEngine.currentRound - 1] || 0} pts
+                          </div>
+                        </div>
+
+                        {/* Row 2: Icon + Cards centered */}
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+                          {/* Status Icon - Above Cards */}
+                          <div className={`text-lg ${isUnmatched ? 'text-red-500' : 'text-green-500'}`}>
+                            {isUnmatched ? '✗' : '✓'}
+                          </div>
+
+                          {/* Cards */}
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={safePlayer1Index}
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -20 }}
+                              transition={{ duration: 0.3 }}
+                              className="flex gap-1"
+                            >
+                              {currentGroup.cards.map((card, cardIdx) => (
+                                <div key={cardIdx} className="w-8 h-11 shrink-0">
+                                  <CardComponent card={card} size="xs" isWild={CardValidator.isWildCard(card, wildRank)} />
+                                </div>
+                              ))}
+                            </motion.div>
+                          </AnimatePresence>
+                        </div>
+
+                        {/* Row 3: Indicator Dots centered */}
+                        <div className="flex justify-center gap-1.5">
+                          {player1Groups.map((_, idx) => (
+                            <div
+                              key={idx}
+                              className={`w-2 h-2 rounded-full transition-colors ${
+                                idx === player1CarouselIndex ? 'bg-white' : 'bg-white/30'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -312,12 +485,13 @@ export const GameBoard = ({
               <div className="grid grid-cols-2 gap-4 mb-6 text-center">
                 <div>
                   <div className="text-white/60 text-xs mb-1">Total Score</div>
-                  <div className="text-xl font-bold text-white">{player1.getTotalScore()}</div>
+                  <div className="text-xl font-bold text-white">{player2.getTotalScore()}</div>
                 </div>
                 <div>
                   <div className="text-white/60 text-xs mb-1">Total Score</div>
-                  <div className="text-xl font-bold text-white">{player2.getTotalScore()}</div>
+                  <div className="text-xl font-bold text-white">{player1.getTotalScore()}</div>
                 </div>
+                
               </div>
 
               {/* Next Round Button */}
@@ -327,7 +501,7 @@ export const GameBoard = ({
                 onClick={onNextRound}
                 className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-white/90 transition-colors"
               >
-                {gameEngine.currentRound < 13 ? 'NEXT ROUND' : 'VIEW FINAL RESULTS'}
+                {gameEngine.currentRound < 11 ? 'NEXT ROUND' : 'VIEW FINAL RESULTS'}
               </motion.button>
             </div>
           </motion.div>
@@ -469,104 +643,153 @@ export const GameBoard = ({
         )}
         {/* End of Center Table conditional */}
 
-        {/* Player's Hand - Bottom */}
-        <div className="flex flex-col items-center gap-4">
-          <div className={`flex ${playerHandStyle.gap} justify-center relative`}>
-            <AnimatePresence mode="popLayout">
-              {player1.getHand().map((card, index) => {
-                const isSelectedForDiscard = hasDrawn && selectedCardIndex === index;
-                const isSelectedForMove = !hasDrawn && cardToMove === index;
-                const isAnyCardSelected = isSelectedForDiscard || isSelectedForMove;
-
-                return (
-                  <motion.div
-                    key={`${card.suit}-${card.rank}`}
-                    layout
-                    initial={{ y: 100, opacity: 0, rotateY: 180 }}
-                    animate={{
-                      y: isAnyCardSelected ? -20 : 0,
-                      opacity: 1,
-                      rotateY: 0,
-                      scale: isAnyCardSelected ? playerHandStyle.scale * 1.1 : playerHandStyle.scale
-                    }}
-                    exit={{ y: -100, opacity: 0, scale: 0.8 }}
-                    transition={{
-                      layout: { duration: 0.3, ease: "easeInOut" },
-                      default: { delay: index * 0.05, duration: 0.3 }
-                    }}
-                    whileHover={{ y: -8 }}
-                    onClick={() => handleCardClick(index)}
-                    onDoubleClick={() => handleCardDoubleClick(index)}
-                    className="cursor-pointer relative"
-                  >
-                    {isSelectedForMove && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg z-10">
-                        <span className="text-white text-sm font-bold" style={{ lineHeight: 0 }}>↔</span>
-                      </div>
-                    )}
-                    <CardComponent
-                      card={card}
-                      isWild={CardValidator.isWildCard(card, wildRank)}
-                      isSelected={isSelectedForDiscard}
-                      size={playerHandStyle.cardSize}
-                    />
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-
-          {/* Bottom Action Bar */}
-          <div className="flex items-center gap-6 px-8 py-4 rounded-2xl bg-black/20 backdrop-blur-md border border-white/5">
-            {difficulty === 'easy' && (
-              <div className="flex items-center gap-3">
-                <span className="text-white/50 text-sm">Score:</span>
-                <span className={`text-2xl font-bold px-4 py-1 rounded-lg ${
-                  playerScore === 0 ? 'bg-white/10 text-white' : 'bg-white/5 text-white/80'
-                }`}>
-                  {playerScore}
-                </span>
-              </div>
-            )}
-
-            <motion.button
-              whileHover={{ scale: canKnock ? 1.02 : 1 }}
-              whileTap={{ scale: canKnock ? 0.98 : 1 }}
-              onClick={onKnock}
-              disabled={!canKnock}
-              className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all ${
-                canKnock
-                  ? 'bg-white text-slate-900 shadow-lg cursor-pointer hover:shadow-xl'
-                  : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-40'
-              }`}
-            >
-              KNOCK
-            </motion.button>
-          </div>
-        </div>
         </div>
       </div>
 
-      {/* Right Side - Player 2 - Desktop: Sidebar, Mobile: Compact Footer - Hidden on smallest screens */}
-      <div className="hidden min-h-[700px]:flex md:w-48 w-full md:h-full h-auto md:flex-col flex-row items-center justify-between md:justify-center bg-black/20 md:border-l border-t md:border-t-0 border-white/10 p-3 md:p-6">
-        <div className="flex md:flex-col flex-row items-center md:text-center gap-3 md:gap-4">
-          {/* Avatar */}
-          <div className="w-12 h-12 md:w-20 md:h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-2xl md:text-4xl">
-            {player2.avatar || '🤖'}
+      {/* Right Side - Player Hand (Vertical) */}
+      <div className="w-80 h-full flex flex-col items-center justify-center bg-black/20 border-l border-white/10 p-2 gap-3">
+        {/* Player info header */}
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-2xl">
+            {player1.avatar || '👤'}
           </div>
-
-          {/* Name */}
-          <div className="text-white/40 text-xs uppercase tracking-widest font-semibold">
-            {player2.name}
+          <div className="text-white/40 text-[10px] uppercase tracking-wider text-center">
+            {player1.name}
+          </div>
+          <div className="text-xl font-bold text-white">
+            {player1.getTotalScore()}
           </div>
         </div>
 
-        {/* Score - More compact on mobile */}
-        <div className="md:mt-0">
-          <div className="text-white/50 text-[10px] uppercase tracking-wider mb-1 hidden md:block">Score</div>
-          <div className="text-3xl md:text-6xl font-light tabular-nums text-white">
-            {player2.getTotalScore()}
-          </div>
+        {/* Player Hand - Multi-row Layout with Overlapping Cards */}
+        <div className="flex flex-col gap-1 items-center flex-1 justify-center overflow-y-auto overflow-x-hidden">
+          <AnimatePresence mode="popLayout">
+            {playerRows.map((row, rowIndex) => (
+              <div key={rowIndex} className="flex">
+                {row.map((card, cardIndex) => {
+                  const globalIndex = playerRows.slice(0, rowIndex).reduce((sum, r) => sum + r.length, 0) + cardIndex;
+                  const isSelectedForDiscard = hasDrawn && selectedCardIndex === globalIndex;
+                  const isSelectedForMove = !hasDrawn && cardToMove === globalIndex;
+                  const isAnyCardSelected = isSelectedForDiscard || isSelectedForMove;
+
+                  const isDraggable = !hasDrawn && !gameEngine.isRoundOver() && isPlayerTurn && !isPaused;
+
+                  return (
+                    <motion.div
+                      key={`${card.suit}-${card.rank}-${globalIndex}`}
+                      layout
+                      draggable={isDraggable}
+                      onDragStart={(e) => {
+                        if (!isDraggable) {
+                          e.preventDefault();
+                          return;
+                        }
+                        setDraggedCard(globalIndex);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragOver={(e) => {
+                        if (!isDraggable || draggedCard === null) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (draggedCard !== globalIndex) {
+                          setDropTarget(globalIndex);
+                        }
+                      }}
+                      onDragEnter={(e) => {
+                        if (!isDraggable || draggedCard === null) return;
+                        e.preventDefault();
+                        if (draggedCard !== globalIndex) {
+                          setDropTarget(globalIndex);
+                        }
+                      }}
+                      onDragLeave={(e) => {
+                        if (!isDraggable) return;
+                        if (dropTarget === globalIndex) {
+                          setDropTarget(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        if (!isDraggable) return;
+                        e.preventDefault();
+                        if (draggedCard !== null && dropTarget !== null && draggedCard !== dropTarget) {
+                          onReorderHand(draggedCard, dropTarget);
+                        }
+                        setDraggedCard(null);
+                        setDropTarget(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedCard(null);
+                        setDropTarget(null);
+                      }}
+                      initial={{ x: 100, opacity: 0, rotateY: 180 }}
+                      animate={{
+                        x: isAnyCardSelected ? 10 : 0,
+                        opacity: draggedCard === globalIndex ? 0.5 : 1,
+                        rotateY: 0,
+                        scale: isAnyCardSelected ? 1.15 : dropTarget === globalIndex ? 1.1 : 1
+                      }}
+                      exit={{ x: 100, opacity: 0, scale: 0.8 }}
+                      transition={{
+                        layout: { duration: 0.3, ease: "easeInOut" },
+                        default: { delay: globalIndex * 0.05, duration: 0.3 }
+                      }}
+                      whileHover={{ x: 6, scale: 1.05 }}
+                      onClick={() => handleCardClick(globalIndex)}
+                      onDoubleClick={() => handleCardDoubleClick(globalIndex)}
+                      className={`cursor-pointer relative ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      style={{
+                        marginLeft: cardIndex === 0 ? '0' : '-16px',
+                        zIndex: draggedCard === globalIndex ? 50 : dropTarget === globalIndex ? 10 : 1
+                      }}
+                    >
+                      {isSelectedForMove && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-lg z-10">
+                          <span className="text-white text-[10px] font-bold" style={{ lineHeight: 0 }}>⊕</span>
+                        </div>
+                      )}
+                      {dropTarget === globalIndex && draggedCard !== null && draggedCard !== globalIndex && (
+                        <div className="absolute inset-0 border-2 border-blue-400 rounded-lg pointer-events-none"></div>
+                      )}
+                      <CardComponent
+                        card={card}
+                        isWild={CardValidator.isWildCard(card, wildRank)}
+                        isSelected={isSelectedForDiscard}
+                        size="sm"
+                      />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Action Buttons - Bottom of sidebar */}
+        <div className="flex flex-col items-center gap-2 mt-2">
+          {difficulty === 'easy' && (
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-white/50 text-[10px]">Score</span>
+              <span className={`text-base font-bold px-2 py-0.5 rounded-lg ${
+                playerScore === 0 ? 'bg-white/10 text-white' : 'bg-white/5 text-white/80'
+              }`}>
+                {playerScore}
+              </span>
+            </div>
+          )}
+
+          <motion.button
+            whileHover={{ scale: canKnock ? 1.05 : 1 }}
+            whileTap={{ scale: canKnock ? 0.95 : 1 }}
+            onClick={onKnock}
+            disabled={!canKnock}
+            className={`px-4 py-2 rounded-lg font-semibold text-xs transition-all ${
+              canKnock
+                ? 'bg-white text-slate-900 shadow-lg cursor-pointer hover:shadow-xl'
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-40'
+            }`}
+          >
+            KNOCK
+          </motion.button>
         </div>
       </div>
 
@@ -603,18 +826,6 @@ export const GameBoard = ({
         )}
       </AnimatePresence>
 
-      {/* Card In Transit Animation */}
-      {transitCard && (
-        <CardInTransit
-          card={transitCard.card}
-          from={transitCard.from}
-          to={transitCard.to}
-          isHidden={transitCard.isHidden}
-          onComplete={() => {
-            // Animation completed - handled by useGameState
-          }}
-        />
-      )}
     </div>
   );
 };

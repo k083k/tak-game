@@ -45,7 +45,7 @@ export const SetupScreen = ({
             🎴
           </motion.div>
           <h1 className="text-3xl md:text-5xl font-black text-white mb-1 md:mb-2">Card Game</h1>
-          <p className="text-white/50 text-sm md:text-base">13 Rounds of Strategy</p>
+          <p className="text-white/50 text-sm md:text-base">11 Rounds of Strategy</p>
         </motion.div>
 
         {/* Two Column Layout */}

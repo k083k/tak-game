@@ -28,7 +28,6 @@ function App() {
     setSelectedCardIndex,
     hasDrawn,
     knockCountdown,
-    transitCard,
     startNewGame,
     startNextRound,
     drawCard,
@@ -112,7 +111,6 @@ function App() {
           setSelectedCardIndex={setSelectedCardIndex}
           hasDrawn={hasDrawn}
           knockCountdown={knockCountdown}
-          transitCard={transitCard}
           onDrawCard={drawCard}
           onDiscardCard={discardCard}
           onKnock={knock}

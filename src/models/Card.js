@@ -7,7 +7,8 @@ export class Card {
     HEARTS: '♥',
     DIAMONDS: '♦',
     CLUBS: '♣',
-    JOKER: ''
+    JOKER_RED: 'JR',
+    JOKER_BLACK: 'JB'
   };
 
   static RANKS = {
@@ -36,7 +37,7 @@ export class Card {
    * Check if this is a Joker
    */
   isJoker() {
-    return this.rank === Card.RANKS.JOKER;
+    return this.rank === Card.RANKS.JOKER || this.suit === Card.SUITS.JOKER_RED || this.suit === Card.SUITS.JOKER_BLACK;
   }
 
   /**

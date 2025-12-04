@@ -40,7 +40,7 @@ export const ScreenSizeWarning = () => {
         {/* Minimum Size Info */}
         <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-2">
           <p className="text-white/60 text-sm">
-            <span className="font-semibold text-white/80">Minimum screen width:</span> 768px
+            <span className="font-semibold text-white/80">Minimum screen width:</span> 1080px
           </p>
           <p className="text-white/60 text-sm">
             <span className="font-semibold text-white/80">Minimum screen height:</span> 600px

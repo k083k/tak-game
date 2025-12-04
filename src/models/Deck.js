@@ -14,7 +14,7 @@ export class Deck {
    */
   initialize() {
     this.cards = [];
-    const suits = Object.values(Card.SUITS).filter(s => s !== '');
+    const suits = Object.values(Card.SUITS).filter(s => s !== 'JR' && s !== 'JB');
 
     // Add regular cards (Ace through King for each suit)
     for (const suit of suits) {
@@ -23,9 +23,9 @@ export class Deck {
       }
     }
 
-    // Add 2 Jokers
-    this.cards.push(new Card(Card.SUITS.JOKER, Card.RANKS.JOKER));
-    this.cards.push(new Card(Card.SUITS.JOKER, Card.RANKS.JOKER));
+    // Add 2 Jokers (one red, one black)
+    this.cards.push(new Card(Card.SUITS.JOKER_RED, Card.RANKS.JOKER));
+    this.cards.push(new Card(Card.SUITS.JOKER_BLACK, Card.RANKS.JOKER));
   }
 
   /**

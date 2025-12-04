@@ -159,7 +159,7 @@ export class ScoreCalculator {
    */
   static generateAllPossibleRuns(hand, wildRank) {
     const possibleRuns = [];
-    const suits = Object.values(Card.SUITS).filter(s => s !== '');
+    const suits = Object.values(Card.SUITS).filter(s => s !== '' && s !== 'JR' && s !== 'JB');
 
     for (const suit of suits) {
       const cardsOfSuit = hand.filter(c =>
@@ -277,7 +277,7 @@ export class ScoreCalculator {
    * Find all possible runs in the remaining cards
    */
   static findRuns(remaining, combinations, wildRank) {
-    const suits = Object.values(Card.SUITS).filter(s => s !== '');
+    const suits = Object.values(Card.SUITS).filter(s => s !== '' && s !== 'JR' && s !== 'JB');
 
     for (const suit of suits) {
       const cardsOfSuit = remaining.filter(c =>

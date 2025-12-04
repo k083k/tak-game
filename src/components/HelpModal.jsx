@@ -36,7 +36,7 @@ export const HelpModal = ({ onClose }) => {
           <section>
             <h3 className="text-xl font-bold text-white mb-2">🎯 Objective</h3>
             <p className="text-white/70 leading-relaxed">
-              Be the player with the <span className="text-white font-semibold">lowest total score</span> after 13 rounds. Score points are bad - aim for zero!
+              Be the player with the <span className="text-white font-semibold">lowest total score</span> after 11 rounds. Score points are bad - aim for zero!
             </p>
           </section>
 
@@ -44,9 +44,9 @@ export const HelpModal = ({ onClose }) => {
           <section>
             <h3 className="text-xl font-bold text-white mb-2">📋 Game Setup</h3>
             <ul className="text-white/70 space-y-2 leading-relaxed">
-              <li>• <span className="text-white font-semibold">13 rounds</span> total</li>
+              <li>• <span className="text-white font-semibold">11 rounds</span> total</li>
               <li>• Each round, players receive cards equal to the <span className="text-white font-semibold">round number + 2</span></li>
-              <li className="ml-4 text-sm text-white/50">Round 1: 3 cards | Round 2: 4 cards | ... | Round 13: 15 cards</li>
+              <li className="ml-4 text-sm text-white/50">Round 1: 3 cards | Round 2: 4 cards | ... | Round 11: 13 cards</li>
             </ul>
           </section>
 
@@ -87,14 +87,8 @@ export const HelpModal = ({ onClose }) => {
               <div className="bg-white/5 rounded-lg px-3 py-2 border border-white/10">
                 <span className="text-white/50">Round 10:</span> <span className="text-white font-semibold">Queens</span>
               </div>
-              <div className="bg-white/5 rounded-lg px-3 py-2 border border-white/10">
-                <span className="text-white/50">Round 11:</span> <span className="text-white font-semibold">Kings</span>
-              </div>
-              <div className="bg-white/5 rounded-lg px-3 py-2 border border-white/10">
-                <span className="text-white/50">Round 12:</span> <span className="text-white font-semibold">Aces</span>
-              </div>
               <div className="bg-white/5 rounded-lg px-3 py-2 border border-white/10 col-span-2">
-                <span className="text-white/50">Round 13:</span> <span className="text-white font-semibold">2s</span>
+                <span className="text-white/50">Round 11:</span> <span className="text-white font-semibold">Kings</span>
               </div>
             </div>
           </section>
@@ -181,7 +175,7 @@ export const HelpModal = ({ onClose }) => {
                 </p>
               </div>
               <p className="text-white/70">
-                After 13 rounds, the player with the <span className="text-white font-semibold">lowest total score wins!</span>
+                After 11 rounds, the player with the <span className="text-white font-semibold">lowest total score wins!</span>
               </p>
             </div>
           </section>

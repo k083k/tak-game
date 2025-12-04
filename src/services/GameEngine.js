@@ -5,7 +5,7 @@ import { ScoreCalculator } from './ScoreCalculator';
  * Main game engine that manages game state and rules
  */
 export class GameEngine {
-  static MAX_ROUNDS = 13;
+  static MAX_ROUNDS = 11;
   static STARTING_CARDS_ROUND_1 = 3;
 
   constructor(player1, player2) {
@@ -35,12 +35,11 @@ export class GameEngine {
 
   /**
    * Get wild rank for current round
-   * Wraps around: Round 1 = 3, Round 11 = 13(K), Round 12 = 1(A), Round 13 = 2
+   * Round 1 = 3, Round 2 = 4, ..., Round 11 = 13(K)
+   * No Ace or 2 as wild cards
    */
   getWildRank() {
-    const wildRank = this.currentRound + 2;
-    // Wrap around after King (13) back to Ace (1)
-    return wildRank > 13 ? wildRank - 13 : wildRank;
+    return this.currentRound + 2;
   }
 
   /**

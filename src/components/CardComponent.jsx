@@ -25,7 +25,15 @@ export const CardComponent = ({
 
   // Get image path for the card
   const getCardImagePath = (card) => {
-    if (!card || card.isJoker()) {
+    if (!card) {
+      return '/cards/joker_red.png';
+    }
+
+    // Handle jokers
+    if (card.isJoker()) {
+      if (card.suit === 'JB') {
+        return '/cards/joker_black.png';
+      }
       return '/cards/joker_red.png';
     }
 

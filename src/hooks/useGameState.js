@@ -22,7 +22,6 @@ export const useGameState = () => {
   const [hasDrawn, setHasDrawn] = useState(false);
   const [roundResult, setRoundResult] = useState(null);
   const [knockCountdown, setKnockCountdown] = useState(null);
-  const [transitCard, setTransitCard] = useState(null); // { card, from, to, isHidden }
   const [, forceUpdate] = useState(0);
 
   /**
@@ -164,89 +163,65 @@ export const useGameState = () => {
       return;
     }
 
-    // Show card in transit to AI hand
-    setTransitCard({
-      card: drawnCard,
-      from: move.drawFrom === 'discard' ? 'discard' : 'deck',
-      to: 'opponentHand',
-      isHidden: true // Hidden during transit
-    });
+    // Add card instantly to AI hand
+    aiPlayerObj.addCard(drawnCard);
+    refresh();
 
-    // After draw animation completes, add to AI hand
+    // Brief delay to simulate AI thinking, then discard
     setTimeout(() => {
-      aiPlayerObj.addCard(drawnCard);
-      setTransitCard(null);
+      // Discard card
+      const discardedCard = aiPlayerObj.removeCard(move.discardIndex);
+      engine.discardCard(discardedCard);
       refresh();
 
-      // Brief delay to simulate AI thinking, then discard
-      setTimeout(() => {
-        // Discard card
-        const discardedCard = aiPlayerObj.removeCard(move.discardIndex);
+      // Check if AI should knock AFTER drawing and discarding
+      const finalScore = ScoreCalculator.calculateScore(aiPlayerObj.getHand(), engine.getWildRank()).score;
+      const shouldKnock = finalScore === 0;
 
-        // Show card in transit to discard pile
-        setTransitCard({
-          card: discardedCard,
-          from: 'opponentHand',
-          to: 'discard',
-          isHidden: false // Show face when discarding
+      if (shouldKnock && engine.knockedPlayerIndex === null) {
+        engine.knock(1);
+        toast.success('Computer has knocked! This is your final turn.', {
+          icon: '🔔',
+          duration: 3500,
         });
 
-        // After discard animation completes
-        setTimeout(() => {
-          engine.discardCard(discardedCard);
-          setTransitCard(null);
-          refresh();
+        // AI knocked, switch back to player immediately for final turn
+        engine.switchPlayer();
+        refresh();
+        return;
+      }
 
-          // Check if AI should knock AFTER drawing and discarding
-          const finalScore = ScoreCalculator.calculateScore(aiPlayerObj.getHand(), engine.getWildRank()).score;
-          const shouldKnock = finalScore === 0;
+      // AI didn't knock - start countdown (1 sec for hard, 3 sec for easy)
+      const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
+      setKnockCountdown(knockWindowDuration);
 
-          if (shouldKnock && engine.knockedPlayerIndex === null) {
-            engine.knock(1);
-            toast.success('Computer has knocked! This is your final turn.', {
-              icon: '🔔',
-              duration: 3500,
-            });
-
-            // AI knocked, switch back to player immediately for final turn
-            engine.switchPlayer();
-            refresh();
-            return;
+      const countdownInterval = setInterval(() => {
+        setKnockCountdown(prev => {
+          if (prev === null || prev <= 1) {
+            clearInterval(countdownInterval);
+            return null;
           }
+          return prev - 1;
+        });
+      }, 1000);
 
-          // AI didn't knock - start countdown (1 sec for hard, 3 sec for easy)
-          const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
-          setKnockCountdown(knockWindowDuration);
+      // After countdown duration, switch back to player
+      setTimeout(() => {
+        setKnockCountdown(null);
+        engine.switchPlayer();
 
-          const countdownInterval = setInterval(() => {
-            setKnockCountdown(prev => {
-              if (prev === null || prev <= 1) {
-                clearInterval(countdownInterval);
-                return null;
-              }
-              return prev - 1;
-            });
-          }, 1000);
+        // Check if round is over AFTER switching
+        if (engine.isRoundOver()) {
+          const result = engine.endRound();
+          setRoundResult(result);
+          setGameState('round-end');
+          refresh();
+          return;
+        }
 
-          // After countdown duration, switch back to player
-          setTimeout(() => {
-            setKnockCountdown(null);
-            engine.switchPlayer();
-
-            // Check if round is over AFTER switching
-            if (engine.isRoundOver()) {
-              const result = engine.endRound();
-              setRoundResult(result);
-              setGameState('round-end');
-              refresh();
-              return;
-            }
-
-            refresh();
-          }, knockWindowDuration * 1000);
-        }, 600); // After discard animation
-      }, 300); // AI thinking delay
-    }, 600); // After draw animation
+        refresh();
+      }, knockWindowDuration * 1000);
+    }, 500); // AI thinking delay
   }, [refresh, difficulty]);
 
   /**
@@ -331,21 +306,10 @@ export const useGameState = () => {
     const card = gameEngine.drawCard(fromDiscard);
 
     if (card) {
-      // Show card in transit animation
-      setTransitCard({
-        card,
-        from: fromDiscard ? 'discard' : 'deck',
-        to: 'playerHand',
-        isHidden: false
-      });
-
-      // After animation completes, add to hand
-      setTimeout(() => {
-        currentPlayer.addCard(card);
-        setHasDrawn(true);
-        setTransitCard(null);
-        refresh();
-      }, 600); // Match animation duration
+      // Add card instantly to hand
+      currentPlayer.addCard(card);
+      setHasDrawn(true);
+      refresh();
     } else {
       // No card available - deck is empty and can't draw
       // End the round immediately
@@ -365,64 +329,53 @@ export const useGameState = () => {
     const currentPlayer = gameEngine.getCurrentPlayer();
     const card = currentPlayer.removeCard(cardIndex);
 
-    // Show card in transit animation
-    setTransitCard({
-      card,
-      from: 'playerHand',
-      to: 'discard',
-      isHidden: false
-    });
+    // Add to discard pile instantly
+    gameEngine.discardCard(card);
+    setSelectedCardIndex(null);
+    setHasDrawn(false);
+    refresh();
 
-    // After animation, add to discard pile
+    // Start countdown for knock window (1 sec for hard, 3 sec for easy)
+    const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
+    setKnockCountdown(knockWindowDuration);
+
+    const countdownInterval = setInterval(() => {
+      setKnockCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(countdownInterval);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // After countdown duration, automatically switch to next player
     setTimeout(() => {
-      gameEngine.discardCard(card);
-      setTransitCard(null);
-      setSelectedCardIndex(null);
-      setHasDrawn(false);
-      refresh();
+      // Clear countdown first
+      setKnockCountdown(null);
 
-      // Start countdown for knock window (1 sec for hard, 3 sec for easy)
-      const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
-      setKnockCountdown(knockWindowDuration);
+      // Player didn't knock, switch to next player
+      gameEngine.switchPlayer();
 
-      const countdownInterval = setInterval(() => {
-        setKnockCountdown(prev => {
-          if (prev === null || prev <= 1) {
-            clearInterval(countdownInterval);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      // Check if round is over AFTER switching
+      if (gameEngine.isRoundOver()) {
+        const result = gameEngine.endRound();
+        setRoundResult(result);
+        setGameState('round-end');
+        refresh();
+        return;
+      }
 
-      // After countdown duration, automatically switch to next player
-      setTimeout(() => {
-        // Clear countdown first
-        setKnockCountdown(null);
-
-        // Player didn't knock, switch to next player
-        gameEngine.switchPlayer();
-
-        // Check if round is over AFTER switching
-        if (gameEngine.isRoundOver()) {
-          const result = gameEngine.endRound();
-          setRoundResult(result);
-          setGameState('round-end');
-          refresh();
-          return;
-        }
-
-        // If AI's turn, let it play
-        if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 1) {
-          setTimeout(() => {
-            playAITurn();
-          }, 300);
-        } else {
-          // PvP mode - refresh now since no AI turn
-          refresh();
-        }
-      }, knockWindowDuration * 1000);
-    }, 600); // Match animation duration
+      // If AI's turn, let it play
+      if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 1) {
+        setTimeout(() => {
+          playAITurn();
+        }, 300);
+      } else {
+        // PvP mode - refresh now since no AI turn
+        refresh();
+      }
+    }, knockWindowDuration * 1000);
   }, [gameEngine, hasDrawn, gameMode, playAITurn, refresh, difficulty]);
 
   /**
@@ -516,7 +469,6 @@ export const useGameState = () => {
     hasDrawn,
     roundResult,
     knockCountdown,
-    transitCard,
     startNewGame,
     startNextRound,
     drawCard,
