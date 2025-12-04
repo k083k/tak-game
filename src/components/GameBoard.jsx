@@ -81,6 +81,7 @@ export const GameBoard = ({
   const wildRank = gameEngine.getWildRank();
   const isPlayerTurn = gameEngine.currentPlayerIndex === 0;
   const topDiscard = gameEngine.peekDiscard();
+  const secondDiscard = gameEngine.discardPile.length >= 2 ? gameEngine.discardPile[gameEngine.discardPile.length - 2] : null;
   const hasKnocked = gameEngine.knockedPlayerIndex !== null;
   const deckHasCards = gameEngine.deck.hasCards();
 
@@ -607,14 +608,32 @@ export const GameBoard = ({
                 }
               }}
             >
+              {/* Card underneath (second in pile) - shown slightly offset */}
+              {secondDiscard && (
+                <div className="absolute top-1 left-1 opacity-70">
+                  <CardComponent
+                    card={secondDiscard}
+                    isWild={CardValidator.isWildCard(secondDiscard, wildRank)}
+                    size="md"
+                  />
+                </div>
+              )}
+
+              {/* Top card with animation */}
               <AnimatePresence mode="wait">
                 {topDiscard ? (
                   <motion.div
                     key={`${topDiscard.suit}-${topDiscard.rank}`}
-                    initial={{ rotateY: 90, scale: 0.8 }}
-                    animate={{ rotateY: 0, scale: 1 }}
-                    exit={{ rotateY: -90, scale: 0.8 }}
-                    transition={{ duration: 0.3 }}
+                    initial={{ x: 100, y: 50, opacity: 0, scale: 0.8 }}
+                    animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                    exit={{ x: 100, y: 50, opacity: 0, scale: 0.8 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 25,
+                      duration: 0.4
+                    }}
+                    className="relative z-10"
                   >
                     <CardComponent
                       card={topDiscard}
@@ -721,14 +740,14 @@ export const GameBoard = ({
                         setDraggedCard(null);
                         setDropTarget(null);
                       }}
-                      initial={{ x: 100, opacity: 0, rotateY: 180 }}
+                      initial={{ x: -100, y: -50, opacity: 0, rotateY: 180, scale: 0.8 }}
                       animate={{
                         x: isAnyCardSelected ? 10 : 0,
                         opacity: draggedCard === globalIndex ? 0.5 : 1,
                         rotateY: 0,
                         scale: isAnyCardSelected ? 1.15 : dropTarget === globalIndex ? 1.1 : 1
                       }}
-                      exit={{ x: 100, opacity: 0, scale: 0.8 }}
+                      exit={{ x: -100, y: -50, opacity: 0, scale: 0.8 }}
                       transition={{
                         layout: { duration: 0.3, ease: "easeInOut" },
                         default: { delay: globalIndex * 0.05, duration: 0.3 }
