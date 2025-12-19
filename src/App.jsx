@@ -36,18 +36,21 @@ function App() {
     returnToSetup,
     reorderHand,
     loadSavedGame,
-    hasSavedGame
+    hasSavedGame,
+    clearSavedGame
   } = useGameState();
 
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [hasCheckedForSave, setHasCheckedForSave] = useState(false);
   const isLargeEnough = useScreenSize();
 
-  // Check for saved game on mount
+  // Check for saved game on mount (only once)
   useEffect(() => {
-    if (hasSavedGame()) {
+    if (!hasCheckedForSave && hasSavedGame()) {
       setShowResumeModal(true);
     }
-  }, [hasSavedGame]);
+    setHasCheckedForSave(true);
+  }, []); // Empty deps - run only once on mount
 
   // Handle resume game
   const handleResumeGame = () => {
@@ -59,6 +62,8 @@ function App() {
 
   // Handle start new game (discard saved game)
   const handleStartNew = () => {
+    // Clear the saved game from localStorage
+    clearSavedGame();
     setShowResumeModal(false);
   };
 
