@@ -2,16 +2,17 @@ import { useState, useCallback } from 'react';
 import { Player } from '../models/Player';
 import { GameEngine } from '../services/GameEngine';
 import { AIFactory } from '../ai/AIFactory';
+import { PLAYER_CONFIG, GAME_MODES } from '../constants';
 
 /**
  * Hook for managing core game engine state
  * Handles game initialization, player setup, and game lifecycle
  */
 export const useGameEngine = () => {
-  const [gameMode, setGameMode] = useState('pvc'); // 'pvc' or 'pvp'
-  const [difficulty, setDifficulty] = useState('easy'); // 'easy' or 'hard'
+  const [gameMode, setGameMode] = useState(GAME_MODES.PLAYER_VS_COMPUTER);
+  const [difficulty, setDifficulty] = useState('easy');
   const [playerName, setPlayerName] = useState('');
-  const [playerAvatar, setPlayerAvatar] = useState('👤');
+  const [playerAvatar, setPlayerAvatar] = useState(PLAYER_CONFIG.DEFAULT_AVATAR);
   const [gameEngine, setGameEngine] = useState(null);
   const [ai, setAI] = useState(null);
   const [gameState, setGameState] = useState('setup'); // 'setup', 'playing', 'round-end', 'game-over'
@@ -20,18 +21,18 @@ export const useGameEngine = () => {
    * Initialize a new game with current settings
    */
   const initializeGame = useCallback(() => {
-    const finalPlayerName = playerName.trim() || 'Player 1';
+    const finalPlayerName = playerName.trim() || PLAYER_CONFIG.DEFAULT_NAME;
     const player1 = new Player(finalPlayerName, true);
     player1.avatar = playerAvatar;
 
     const player2 = new Player(
-      gameMode === 'pvc' ? 'Computer' : 'Player 2',
-      gameMode === 'pvp'
+      gameMode === GAME_MODES.PLAYER_VS_COMPUTER ? PLAYER_CONFIG.COMPUTER_NAME : PLAYER_CONFIG.PLAYER_2_NAME,
+      gameMode === GAME_MODES.PLAYER_VS_PLAYER
     );
-    player2.avatar = gameMode === 'pvc' ? '🤖' : '👥';
+    player2.avatar = gameMode === GAME_MODES.PLAYER_VS_COMPUTER ? PLAYER_CONFIG.COMPUTER_AVATAR : PLAYER_CONFIG.PLAYER_2_AVATAR;
 
     const engine = new GameEngine(player1, player2);
-    const aiInstance = gameMode === 'pvc' ? AIFactory.createAI() : null;
+    const aiInstance = gameMode === GAME_MODES.PLAYER_VS_COMPUTER ? AIFactory.createAI() : null;
 
     setGameEngine(engine);
     setAI(aiInstance);

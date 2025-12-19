@@ -7,7 +7,10 @@ import { GameBoard } from './components/GameBoard';
 import { GameOverModal } from './components/GameOverModal';
 import { ResumeGameModal } from './components/ResumeGameModal';
 import { ScreenSizeWarning } from './components/ScreenSizeWarning';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorTest } from './components/ErrorBoundary/ErrorTest';
 import { Toaster } from 'react-hot-toast';
+import { TOAST_CONFIG } from './constants';
 
 /**
  * Main application component
@@ -78,61 +81,57 @@ function App() {
       <Toaster
         position="top-center"
         toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-            fontSize: '16px',
-            fontWeight: '600',
-            padding: '16px',
-            borderRadius: '12px',
-          },
+          duration: TOAST_CONFIG.DURATION,
+          style: TOAST_CONFIG.STYLE,
           success: {
-            iconTheme: {
-              primary: '#10b981',
-              secondary: '#fff',
-            },
+            iconTheme: TOAST_CONFIG.SUCCESS_ICON_THEME,
           },
         }}
       />
       {gameState === 'setup' && (
-        <SetupScreen
-          gameMode={gameMode}
-          setGameMode={setGameMode}
-          difficulty={difficulty}
-          setDifficulty={setDifficulty}
-          playerName={playerName}
-          setPlayerName={setPlayerName}
-          playerAvatar={playerAvatar}
-          setPlayerAvatar={setPlayerAvatar}
-          onStartGame={startNewGame}
-        />
+        <ErrorBoundary componentName="Setup Screen" onReset={returnToSetup}>
+          <SetupScreen
+            gameMode={gameMode}
+            setGameMode={setGameMode}
+            difficulty={difficulty}
+            setDifficulty={setDifficulty}
+            playerName={playerName}
+            setPlayerName={setPlayerName}
+            playerAvatar={playerAvatar}
+            setPlayerAvatar={setPlayerAvatar}
+            onStartGame={startNewGame}
+          />
+        </ErrorBoundary>
       )}
 
       {(gameState === 'playing' || gameState === 'round-end') && (
-        <GameBoard
-          gameEngine={gameEngine}
-          selectedCardIndex={selectedCardIndex}
-          setSelectedCardIndex={setSelectedCardIndex}
-          hasDrawn={hasDrawn}
-          knockCountdown={knockCountdown}
-          onDrawCard={drawCard}
-          onDiscardCard={discardCard}
-          onKnock={knock}
-          onReorderHand={reorderHand}
-          onExit={returnToSetup}
-          onNextRound={startNextRound}
-          gameMode={gameMode}
-          difficulty={difficulty}
-          showRoundResults={gameState === 'round-end'}
-        />
+        <ErrorBoundary componentName="Game Board" onReset={returnToSetup}>
+          <GameBoard
+            gameEngine={gameEngine}
+            selectedCardIndex={selectedCardIndex}
+            setSelectedCardIndex={setSelectedCardIndex}
+            hasDrawn={hasDrawn}
+            knockCountdown={knockCountdown}
+            onDrawCard={drawCard}
+            onDiscardCard={discardCard}
+            onKnock={knock}
+            onReorderHand={reorderHand}
+            onExit={returnToSetup}
+            onNextRound={startNextRound}
+            gameMode={gameMode}
+            difficulty={difficulty}
+            showRoundResults={gameState === 'round-end'}
+          />
+        </ErrorBoundary>
       )}
 
       {gameState === 'game-over' && (
-        <GameOverModal
-          gameEngine={gameEngine}
-          onNewGame={returnToSetup}
-        />
+        <ErrorBoundary componentName="Game Over Screen" onReset={returnToSetup}>
+          <GameOverModal
+            gameEngine={gameEngine}
+            onNewGame={returnToSetup}
+          />
+        </ErrorBoundary>
       )}
 
       {showResumeModal && (
@@ -140,6 +139,13 @@ function App() {
           onResume={handleResumeGame}
           onStartNew={handleStartNew}
         />
+      )}
+
+      {/* Error Boundary Test Button - REMOVE IN PRODUCTION */}
+      {process.env.NODE_ENV === 'development' && (
+        <ErrorBoundary componentName="Error Test">
+          <ErrorTest />
+        </ErrorBoundary>
       )}
     </div>
   );
