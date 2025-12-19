@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { ScoreCalculator } from '../services/ScoreCalculator';
+import { ANIMATION_DELAY, KNOCK_WINDOW } from '../constants';
 
 /**
  * Hook for managing AI player turns
@@ -73,7 +74,7 @@ export const useAIPlayer = (difficulty) => {
       }
 
       // AI didn't knock - start countdown and switch after delay
-      const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
+      const knockWindowDuration = difficulty === 'hard' ? KNOCK_WINDOW.HARD : KNOCK_WINDOW.EASY;
 
       // After countdown duration, switch back to player
       setTimeout(() => {
@@ -88,7 +89,7 @@ export const useAIPlayer = (difficulty) => {
 
         onTurnComplete(knockWindowDuration);
       }, knockWindowDuration * 1000);
-    }, 500); // AI thinking delay
+    }, ANIMATION_DELAY.AI_THINKING);
   }, [difficulty]);
 
   return {

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import { KNOCK_WINDOW } from '../constants';
 
 /**
  * Hook for managing player turns and actions
@@ -55,8 +56,8 @@ export const useTurnManagement = (difficulty) => {
     setHasDrawn(false);
     onRefresh();
 
-    // Start countdown for knock window (1 sec for hard, 3 sec for easy)
-    const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
+    // Start countdown for knock window
+    const knockWindowDuration = difficulty === 'hard' ? KNOCK_WINDOW.HARD : KNOCK_WINDOW.EASY;
     setKnockCountdown(knockWindowDuration);
 
     const countdownInterval = setInterval(() => {
