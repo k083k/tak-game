@@ -54,7 +54,7 @@ export const GameBoard = ({
   const hasKnocked = gameEngine.knockedPlayerIndex !== null;
   const deckHasCards = gameEngine.deck.hasCards();
 
-  const canDraw = isPlayerTurn && !hasDrawn && !gameEngine.isRoundOver() && !isPaused;
+  const canDraw = isPlayerTurn && !hasDrawn && !gameEngine.isRoundOver() && !isPaused && knockCountdown === null;
   const canDrawFromDeck = canDraw && deckHasCards;
   const canDrawFromDiscard = canDraw && topDiscard !== null;
   const playerScore = ScoreCalculator.calculateScore(player1.getHand(), wildRank).score;
