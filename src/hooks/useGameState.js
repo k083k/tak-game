@@ -1,27 +1,22 @@
 import { useState, useCallback, useEffect } from 'react';
-import toast from 'react-hot-toast';
-import { Player } from '../models/Player';
-import { GameEngine } from '../services/GameEngine';
-import { AIFactory } from '../ai/AIFactory';
-import { ScoreCalculator } from '../services/ScoreCalculator';
-import { SaveGameManager } from '../services/SaveGameManager';
-import { Card } from '../models/Card';
+import { useGameEngine } from './useGameEngine';
+import { useTurnManagement } from './useTurnManagement';
+import { useAIPlayer } from './useAIPlayer';
+import { useGamePersistence } from './useGamePersistence';
 
 /**
- * Custom hook for managing game state
+ * Main orchestrator hook for game state management
+ * Composes specialized hooks and coordinates game flow
  */
 export const useGameState = () => {
-  const [gameMode, setGameMode] = useState('pvc'); // 'pvc' or 'pvp'
-  const [difficulty, setDifficulty] = useState('easy'); // 'easy' or 'hard'
-  const [playerName, setPlayerName] = useState('');
-  const [playerAvatar, setPlayerAvatar] = useState('👤');
-  const [gameEngine, setGameEngine] = useState(null);
-  const [ai, setAI] = useState(null);
-  const [gameState, setGameState] = useState('setup'); // 'setup', 'playing', 'round-end', 'game-over'
-  const [selectedCardIndex, setSelectedCardIndex] = useState(null);
-  const [hasDrawn, setHasDrawn] = useState(false);
+  // Compose specialized hooks
+  const gameEngine = useGameEngine();
+  const turnManagement = useTurnManagement(gameEngine.difficulty);
+  const aiPlayer = useAIPlayer(gameEngine.difficulty);
+  const persistence = useGamePersistence();
+
+  // Additional UI state
   const [roundResult, setRoundResult] = useState(null);
-  const [knockCountdown, setKnockCountdown] = useState(null);
   const [, forceUpdate] = useState(0);
 
   /**
@@ -35,440 +30,237 @@ export const useGameState = () => {
    * Auto-save game state whenever it changes
    */
   useEffect(() => {
-    // Only save if we're in an active game (not setup or transitioning)
-    if (gameState === 'playing' || gameState === 'round-end') {
-      SaveGameManager.saveGame({
-        gameMode,
-        difficulty,
-        playerName,
-        playerAvatar,
-        gameEngine,
-        gameState,
-        selectedCardIndex,
-        hasDrawn,
-        roundResult
-      });
-    }
-  }, [gameState, gameEngine, selectedCardIndex, hasDrawn, roundResult, gameMode, difficulty, playerName, playerAvatar]);
+    persistence.autoSaveGame({
+      gameState: gameEngine.gameState,
+      gameMode: gameEngine.gameMode,
+      difficulty: gameEngine.difficulty,
+      playerName: gameEngine.playerName,
+      playerAvatar: gameEngine.playerAvatar,
+      gameEngine: gameEngine.gameEngine,
+      selectedCardIndex: turnManagement.selectedCardIndex,
+      hasDrawn: turnManagement.hasDrawn,
+      roundResult
+    });
+  }, [
+    gameEngine.gameState,
+    gameEngine.gameEngine,
+    gameEngine.gameMode,
+    gameEngine.difficulty,
+    gameEngine.playerName,
+    gameEngine.playerAvatar,
+    turnManagement.selectedCardIndex,
+    turnManagement.hasDrawn,
+    roundResult,
+    persistence
+  ]);
 
   /**
-   * Load a saved game
+   * Handle round end
    */
-  const loadSavedGame = useCallback(() => {
-    const savedData = SaveGameManager.loadGame();
-    if (!savedData) return false;
-
-    try {
-      // Restore settings
-      setGameMode(savedData.gameMode);
-      setDifficulty(savedData.difficulty);
-      setPlayerName(savedData.playerName);
-      setPlayerAvatar(savedData.playerAvatar);
-
-      // Reconstruct game engine
-      const engineData = savedData.gameEngine;
-
-      // Recreate players
-      const player1 = new Player(engineData.player1.name, engineData.player1.isHuman);
-      player1.avatar = engineData.player1.avatar;
-      player1.roundScores = engineData.player1.roundScores;
-      player1.totalScore = engineData.player1.totalScore;
-      player1.setHand(engineData.player1.hand.map(c => new Card(c.suit, c.rank)));
-
-      const player2 = new Player(engineData.player2.name, engineData.player2.isHuman);
-      player2.avatar = engineData.player2.avatar;
-      player2.roundScores = engineData.player2.roundScores;
-      player2.totalScore = engineData.player2.totalScore;
-      player2.setHand(engineData.player2.hand.map(c => new Card(c.suit, c.rank)));
-
-      // Recreate game engine
-      const engine = new GameEngine(player1, player2);
-      engine.currentRound = engineData.currentRound;
-      engine.currentPlayerIndex = engineData.currentPlayerIndex;
-      engine.knockedPlayerIndex = engineData.knockedPlayerIndex;
-      engine.wildRank = engineData.wildRank;
-
-      // Restore deck
-      engine.deck.cards = engineData.deck.map(c => new Card(c.suit, c.rank));
-
-      // Restore discard pile
-      engine.discardPile = engineData.discardPile.map(c => new Card(c.suit, c.rank));
-
-      setGameEngine(engine);
-
-      // Recreate AI if needed
-      if (savedData.gameMode === 'pvc') {
-        setAI(AIFactory.createAI());
-      }
-
-      // Restore game state
-      setGameState(savedData.gamePhase);
-      setSelectedCardIndex(savedData.selectedCardIndex);
-      setHasDrawn(savedData.hasDrawn);
-
-      // Reconstruct roundResult if it exists
-      if (savedData.roundResult) {
-        const reconstructRoundResult = (playerResult) => {
-          return {
-            ...playerResult,
-            combinations: playerResult.combinations.map(combo => ({
-              ...combo,
-              cards: combo.cards.map(c => new Card(c.suit, c.rank))
-            })),
-            remaining: playerResult.remaining.map(c => new Card(c.suit, c.rank))
-          };
-        };
-
-        setRoundResult({
-          ...savedData.roundResult,
-          player1: reconstructRoundResult(savedData.roundResult.player1),
-          player2: reconstructRoundResult(savedData.roundResult.player2)
-        });
-      } else {
-        setRoundResult(null);
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Failed to load saved game:', error);
-      SaveGameManager.clearSave();
-      return false;
-    }
-  }, []);
-
-  /**
-   * Check if saved game exists
-   */
-  const hasSavedGame = useCallback(() => {
-    return SaveGameManager.hasSavedGame();
-  }, []);
-
-  /**
-   * AI plays its turn (helper that can use passed or state values)
-   */
-  const playAITurnImpl = useCallback((engine, aiPlayer) => {
-    if (!engine || !aiPlayer || engine.isRoundOver()) return;
-
-    const aiPlayerObj = engine.player2;
-    const move = aiPlayer.makeMove(engine, aiPlayerObj.getHand());
-
-    // Draw card
-    const drawnCard = engine.drawCard(move.drawFrom === 'discard');
-    if (!drawnCard) {
-      // No card available - deck is empty, end round immediately
-      const result = engine.endRound();
-      setRoundResult(result);
-      setGameState('round-end');
-      refresh();
-      return;
-    }
-
-    // Add card instantly to AI hand
-    aiPlayerObj.addCard(drawnCard);
+  const handleRoundEnd = useCallback((result) => {
+    setRoundResult(result);
+    gameEngine.endRound();
     refresh();
+  }, [gameEngine, refresh]);
 
-    // Brief delay to simulate AI thinking, then discard
-    setTimeout(() => {
-      // Discard card
-      const discardedCard = aiPlayerObj.removeCard(move.discardIndex);
-      engine.discardCard(discardedCard);
-      refresh();
+  /**
+   * Execute AI turn
+   */
+  const playAITurn = useCallback(() => {
+    if (!gameEngine.gameEngine || !gameEngine.ai) return;
 
-      // Check if AI should knock AFTER drawing and discarding
-      const finalScore = ScoreCalculator.calculateScore(aiPlayerObj.getHand(), engine.getWildRank()).score;
-      const shouldKnock = finalScore === 0;
+    aiPlayer.executeAITurn(
+      gameEngine.gameEngine,
+      gameEngine.ai,
+      refresh, // onDrawCard
+      refresh, // onDiscardCard
+      refresh, // onKnock
+      (knockWindowDuration) => {
+        // onTurnComplete
+        turnManagement.setKnockCountdown(knockWindowDuration);
 
-      if (shouldKnock && engine.knockedPlayerIndex === null) {
-        engine.knock(1);
-        toast.success('Computer has knocked! This is your final turn.', {
-          icon: '🔔',
-          duration: 3500,
-        });
-
-        // AI knocked, switch back to player immediately for final turn
-        engine.switchPlayer();
-        refresh();
-        return;
-      }
-
-      // AI didn't knock - start countdown (1 sec for hard, 3 sec for easy)
-      const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
-      setKnockCountdown(knockWindowDuration);
-
-      const countdownInterval = setInterval(() => {
-        setKnockCountdown(prev => {
-          if (prev === null || prev <= 1) {
-            clearInterval(countdownInterval);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      // After countdown duration, switch back to player
-      setTimeout(() => {
-        setKnockCountdown(null);
-        engine.switchPlayer();
-
-        // Check if round is over AFTER switching
-        if (engine.isRoundOver()) {
-          const result = engine.endRound();
-          setRoundResult(result);
-          setGameState('round-end');
-          refresh();
-          return;
-        }
+        const countdownInterval = setInterval(() => {
+          turnManagement.setKnockCountdown(prev => {
+            if (prev === null || prev <= 1) {
+              clearInterval(countdownInterval);
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
 
         refresh();
-      }, knockWindowDuration * 1000);
-    }, 500); // AI thinking delay
-  }, [refresh, difficulty]);
+      },
+      handleRoundEnd // onRoundEnd
+    );
+  }, [gameEngine.gameEngine, gameEngine.ai, aiPlayer, refresh, handleRoundEnd, turnManagement]);
 
   /**
    * Start a new game
    */
   const startNewGame = useCallback(() => {
-    const finalPlayerName = playerName.trim() || 'Player 1';
-    const player1 = new Player(finalPlayerName, true);
-    player1.avatar = playerAvatar;
-
-    const player2 = new Player(
-      gameMode === 'pvc' ? 'Computer' : 'Player 2',
-      gameMode === 'pvp'
-    );
-    player2.avatar = gameMode === 'pvc' ? '🤖' : '👥';
-
-    const engine = new GameEngine(player1, player2);
-    const aiInstance = gameMode === 'pvc' ? AIFactory.createAI() : null;
-
-    setGameEngine(engine);
-    setAI(aiInstance);
-    setGameState('playing');
-    setSelectedCardIndex(null);
-    setHasDrawn(false);
-
-    engine.startRound();
+    const { engine, aiInstance } = gameEngine.initializeGame();
+    turnManagement.resetTurnState();
     refresh();
 
     // If computer starts first, let it play
-    if (gameMode === 'pvc' && engine.currentPlayerIndex === 1 && aiInstance) {
+    if (gameEngine.gameMode === 'pvc' && engine.currentPlayerIndex === 1 && aiInstance) {
       setTimeout(() => {
-        playAITurnImpl(engine, aiInstance);
+        playAITurn();
       }, 1000);
     }
-  }, [gameMode, playerName, playerAvatar, playAITurnImpl, refresh]);
-
-  /**
-   * AI plays its turn (using state values)
-   */
-  const playAITurn = useCallback(() => {
-    if (!gameEngine || !ai) return;
-    playAITurnImpl(gameEngine, ai);
-  }, [gameEngine, ai, playAITurnImpl]);
+  }, [gameEngine, turnManagement, refresh, playAITurn]);
 
   /**
    * Start next round
    */
   const startNextRound = useCallback(() => {
-    if (!gameEngine) return;
+    if (!gameEngine.gameEngine) return;
 
-    if (gameEngine.isGameOver()) {
-      // Clear saved game when game ends
-      SaveGameManager.clearSave();
-      setGameState('game-over');
+    const hasNextRound = gameEngine.advanceRound();
+    if (!hasNextRound) {
+      // Game is over
+      persistence.clearSavedGame();
       return;
     }
 
-    // Increment round before starting next round
-    gameEngine.currentRound++;
-    gameEngine.startRound();
-    setGameState('playing');
-    setSelectedCardIndex(null);
-    setHasDrawn(false);
-    setKnockCountdown(null);
+    turnManagement.resetTurnState();
+    setRoundResult(null);
     refresh();
 
     // If computer starts this round, let it play
-    if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 1) {
+    if (gameEngine.gameMode === 'pvc' && gameEngine.gameEngine.currentPlayerIndex === 1) {
       setTimeout(() => {
         playAITurn();
       }, 1000);
     }
-  }, [gameEngine, gameMode, playAITurn, refresh]);
+  }, [gameEngine, turnManagement, refresh, playAITurn, persistence]);
 
   /**
    * Player draws a card
    */
   const drawCard = useCallback((fromDiscard) => {
-    if (!gameEngine || hasDrawn || gameEngine.isRoundOver()) return;
-
-    const currentPlayer = gameEngine.getCurrentPlayer();
-    const card = gameEngine.drawCard(fromDiscard);
-
-    if (card) {
-      // Add card instantly to hand
-      currentPlayer.addCard(card);
-      setHasDrawn(true);
-      refresh();
-    } else {
-      // No card available - deck is empty and can't draw
-      // End the round immediately
-      const result = gameEngine.endRound();
-      setRoundResult(result);
-      setGameState('round-end');
-      refresh();
-    }
-  }, [gameEngine, hasDrawn, refresh]);
+    turnManagement.drawCard(
+      gameEngine.gameEngine,
+      fromDiscard,
+      handleRoundEnd,
+      refresh
+    );
+  }, [gameEngine.gameEngine, turnManagement, handleRoundEnd, refresh]);
 
   /**
    * Player discards a card
    */
   const discardCard = useCallback((cardIndex) => {
-    if (!gameEngine || !hasDrawn) return;
-
-    const currentPlayer = gameEngine.getCurrentPlayer();
-    const card = currentPlayer.removeCard(cardIndex);
-
-    // Add to discard pile instantly
-    gameEngine.discardCard(card);
-    setSelectedCardIndex(null);
-    setHasDrawn(false);
-    refresh();
-
-    // Start countdown for knock window (1 sec for hard, 3 sec for easy)
-    const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
-    setKnockCountdown(knockWindowDuration);
-
-    const countdownInterval = setInterval(() => {
-      setKnockCountdown(prev => {
-        if (prev === null || prev <= 1) {
-          clearInterval(countdownInterval);
-          return null;
+    turnManagement.discardCard(
+      gameEngine.gameEngine,
+      cardIndex,
+      () => {
+        // onTurnComplete - if AI's turn, let it play
+        if (gameEngine.gameMode === 'pvc' && gameEngine.gameEngine.currentPlayerIndex === 1) {
+          setTimeout(() => {
+            playAITurn();
+          }, 300);
+        } else {
+          // PvP mode - refresh now since no AI turn
+          refresh();
         }
-        return prev - 1;
-      });
-    }, 1000);
-
-    // After countdown duration, automatically switch to next player
-    setTimeout(() => {
-      // Clear countdown first
-      setKnockCountdown(null);
-
-      // Player didn't knock, switch to next player
-      gameEngine.switchPlayer();
-
-      // Check if round is over AFTER switching
-      if (gameEngine.isRoundOver()) {
-        const result = gameEngine.endRound();
-        setRoundResult(result);
-        setGameState('round-end');
-        refresh();
-        return;
-      }
-
-      // If AI's turn, let it play
-      if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 1) {
-        setTimeout(() => {
-          playAITurn();
-        }, 300);
-      } else {
-        // PvP mode - refresh now since no AI turn
-        refresh();
-      }
-    }, knockWindowDuration * 1000);
-  }, [gameEngine, hasDrawn, gameMode, playAITurn, refresh, difficulty]);
+      },
+      handleRoundEnd,
+      refresh
+    );
+  }, [gameEngine.gameEngine, gameEngine.gameMode, turnManagement, playAITurn, handleRoundEnd, refresh]);
 
   /**
    * Player knocks
    */
   const knock = useCallback(() => {
-    if (!gameEngine || gameEngine.knockedPlayerIndex !== null) return;
+    turnManagement.knock(
+      gameEngine.gameEngine,
+      () => {
+        // onKnockComplete
+        refresh();
 
-    // Clear the countdown timer
-    setKnockCountdown(null);
-
-    // No validation - player can knock anytime (even with score > 0)
-    // This allows for strategic mistakes and requires player attention
-    gameEngine.knock(gameEngine.currentPlayerIndex);
-
-    toast.success('You knocked! Opponent gets one final turn.', {
-      icon: '👊',
-      duration: 2500,
-    });
-
-    refresh();
-
-    // If playing against AI, let it take final turn
-    if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 0) {
-      gameEngine.switchPlayer();
-      setTimeout(() => {
-        playAITurn();
-      }, 1000);
-    } else {
-      gameEngine.switchPlayer();
-      refresh();
-    }
-  }, [gameEngine, gameMode, playAITurn, refresh]);
+        // If playing against AI, let it take final turn
+        if (gameEngine.gameMode === 'pvc' && gameEngine.gameEngine.currentPlayerIndex === 1) {
+          setTimeout(() => {
+            playAITurn();
+          }, 1000);
+        } else {
+          refresh();
+        }
+      }
+    );
+  }, [gameEngine.gameEngine, gameEngine.gameMode, turnManagement, playAITurn, refresh]);
 
   /**
    * Return to setup screen
    */
   const returnToSetup = useCallback(() => {
-    // Clear saved game when returning to setup
-    SaveGameManager.clearSave();
-    setGameState('setup');
-    setGameEngine(null);
-    setAI(null);
+    persistence.clearSavedGame();
+    gameEngine.resetGame();
     setRoundResult(null);
-    setSelectedCardIndex(null);
-    setHasDrawn(false);
-  }, []);
+    turnManagement.resetTurnState();
+  }, [gameEngine, turnManagement, persistence]);
 
   /**
    * Reorder cards in player's hand
    */
   const reorderHand = useCallback((fromIndex, toIndex) => {
-    if (!gameEngine) return;
+    turnManagement.reorderHand(
+      gameEngine.gameEngine,
+      fromIndex,
+      toIndex,
+      refresh
+    );
+  }, [gameEngine.gameEngine, turnManagement, refresh]);
 
-    const currentPlayer = gameEngine.getCurrentPlayer();
-    const hand = currentPlayer.getHand();
+  /**
+   * Load a saved game
+   */
+  const loadSavedGame = useCallback(() => {
+    const savedState = persistence.loadSavedGame();
+    if (!savedState) return false;
 
-    // Create new array with reordered cards
-    const newHand = [...hand];
-    const [movedCard] = newHand.splice(fromIndex, 1);
-    newHand.splice(toIndex, 0, movedCard);
+    // Restore all state
+    gameEngine.restoreGameState(savedState);
+    turnManagement.setSelectedCardIndex(savedState.selectedCardIndex);
+    // Note: hasDrawn and knockCountdown are not restored as they are transient
+    setRoundResult(savedState.roundResult);
 
-    // Update player's hand
-    currentPlayer.setHand(newHand);
+    return true;
+  }, [persistence, gameEngine, turnManagement]);
 
-    // Update selected index if needed
-    if (selectedCardIndex === fromIndex) {
-      setSelectedCardIndex(toIndex);
-    } else if (fromIndex < selectedCardIndex && toIndex >= selectedCardIndex) {
-      setSelectedCardIndex(selectedCardIndex - 1);
-    } else if (fromIndex > selectedCardIndex && toIndex <= selectedCardIndex) {
-      setSelectedCardIndex(selectedCardIndex + 1);
-    }
-
-    refresh();
-  }, [gameEngine, selectedCardIndex, refresh]);
+  /**
+   * Check if saved game exists
+   */
+  const hasSavedGame = useCallback(() => {
+    return persistence.hasSavedGame();
+  }, [persistence]);
 
   return {
-    gameMode,
-    setGameMode,
-    difficulty,
-    setDifficulty,
-    playerName,
-    setPlayerName,
-    playerAvatar,
-    setPlayerAvatar,
-    gameEngine,
-    gameState,
-    selectedCardIndex,
-    setSelectedCardIndex,
-    hasDrawn,
+    // Game configuration
+    gameMode: gameEngine.gameMode,
+    setGameMode: gameEngine.setGameMode,
+    difficulty: gameEngine.difficulty,
+    setDifficulty: gameEngine.setDifficulty,
+    playerName: gameEngine.playerName,
+    setPlayerName: gameEngine.setPlayerName,
+    playerAvatar: gameEngine.playerAvatar,
+    setPlayerAvatar: gameEngine.setPlayerAvatar,
+
+    // Game state
+    gameEngine: gameEngine.gameEngine,
+    gameState: gameEngine.gameState,
     roundResult,
-    knockCountdown,
+
+    // Turn state
+    selectedCardIndex: turnManagement.selectedCardIndex,
+    setSelectedCardIndex: turnManagement.setSelectedCardIndex,
+    hasDrawn: turnManagement.hasDrawn,
+    knockCountdown: turnManagement.knockCountdown,
+
+    // Game actions
     startNewGame,
     startNextRound,
     drawCard,
@@ -477,7 +269,10 @@ export const useGameState = () => {
     returnToSetup,
     reorderHand,
     refresh,
+
+    // Persistence
     loadSavedGame,
-    hasSavedGame
+    hasSavedGame,
+    clearSavedGame: persistence.clearSavedGame,
   };
 };
