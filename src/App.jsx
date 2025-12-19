@@ -8,7 +8,6 @@ import { GameOverModal } from './components/GameOverModal';
 import { ResumeGameModal } from './components/ResumeGameModal';
 import { ScreenSizeWarning } from './components/ScreenSizeWarning';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { ErrorTest } from './components/ErrorBoundary/ErrorTest';
 import { Toaster } from 'react-hot-toast';
 import { TOAST_CONFIG } from './constants';
 
@@ -141,12 +140,6 @@ function App() {
         />
       )}
 
-      {/* Error Boundary Test Button - REMOVE IN PRODUCTION */}
-      {process.env.NODE_ENV === 'development' && (
-        <ErrorBoundary componentName="Error Test">
-          <ErrorTest />
-        </ErrorBoundary>
-      )}
     </div>
   );
 }
