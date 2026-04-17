@@ -10,7 +10,7 @@ export class AIStrategy {
    * @param {Card[]} hand - AI's current hand
    * @returns {Object} Move decision {drawFrom: 'deck'|'discard', discardIndex: number, shouldKnock: boolean}
    */
-  makeMove(gameEngine, hand) {
+  makeMove(_gameEngine, _hand) {
     throw new Error('makeMove() must be implemented by subclass');
   }
 

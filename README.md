@@ -1,16 +1,31 @@
-# React + Vite
+# Tac — Card Game
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A 2-player rummy-style card game built with React and Vite.
 
-Currently, two official plugins are available:
+## How to Play
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Play through 11 rounds. Each round the hand size grows (3 cards in round 1, up to 13 in round 11). Form **sets** (3+ cards of the same rank) and **runs** (3+ consecutive cards of the same suit) to reduce your score. The wild card rotates every round. After discarding, you have a short window to **knock** — ending the round and giving your opponent one final turn. Lowest total score after 11 rounds wins.
 
-## React Compiler
+## Modes
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **vs Computer** — play solo against an AI opponent
+- **vs Player** — local hot-seat multiplayer (pass the device)
+- **Easy** — score visible, 3-second knock window
+- **Hard** — score hidden, 1-second knock window
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev      # start dev server
+npm run build    # production build
+npm run lint     # run ESLint
+```
+
+## Stack
+
+- React 19 + Vite
+- Tailwind CSS v4
+- Framer Motion
+- Supabase (online multiplayer)
+- Vercel Analytics

@@ -2,9 +2,10 @@
  * Represents a player in the game
  */
 export class Player {
-  constructor(name, isHuman = true) {
+  constructor(name, isHuman = true, avatar = '👤') {
     this.name = name;
     this.isHuman = isHuman;
+    this.avatar = avatar;
     this.hand = [];
     this.totalScore = 0;
     this.roundScores = [];
