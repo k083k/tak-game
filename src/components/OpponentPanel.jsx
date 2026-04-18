@@ -110,7 +110,7 @@ export const OpponentPanel = ({ player, wildRank, gameMode, showRoundResults, is
                 >
                   <CardComponent
                     card={card}
-                    isHidden={gameMode === 'pvc' && !showRoundResults}
+                    isHidden={(gameMode === 'pvc' || gameMode === 'online') && !showRoundResults}
                     isWild={CardValidator.isWildCard(card, wildRank)}
                     size="sm"
                   />
