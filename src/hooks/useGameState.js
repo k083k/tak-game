@@ -24,6 +24,7 @@ export const useGameState = () => {
   const [hasDrawn, setHasDrawn] = useState(false);
   const [roundResult, setRoundResult] = useState(null);
   const [knockCountdown, setKnockCountdown] = useState(null);
+  const [canKnockAfterDiscard, setCanKnockAfterDiscard] = useState(false);
   const [, forceUpdate] = useState(0);
 
   /**
@@ -180,48 +181,20 @@ export const useGameState = () => {
 
       if (shouldKnock && engine.knockedPlayerIndex === null) {
         engine.knock(1);
-        toast.success('Computer has knocked! This is your final turn.', {
-          icon: '🔔',
-          duration: 3500,
-        });
+      }
 
-        // AI knocked, switch back to player immediately for final turn
-        engine.switchPlayer();
+      engine.switchPlayer();
+
+      if (engine.isRoundOver()) {
+        const result = engine.endRound();
+        setRoundResult(result);
+        setGameState('round-end');
         refresh();
         return;
       }
 
-      // AI didn't knock - start countdown (1 sec for hard, 3 sec for easy)
-      const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
-      setKnockCountdown(knockWindowDuration);
-
-      const countdownInterval = setInterval(() => {
-        setKnockCountdown(prev => {
-          if (prev === null || prev <= 1) {
-            clearInterval(countdownInterval);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      // After countdown duration, switch back to player
-      setTimeout(() => {
-        setKnockCountdown(null);
-        engine.switchPlayer();
-
-        // Check if round is over AFTER switching
-        if (engine.isRoundOver()) {
-          const result = engine.endRound();
-          setRoundResult(result);
-          setGameState('round-end');
-          refresh();
-          return;
-        }
-
-        refresh();
-      }, knockWindowDuration * 1000);
-    }, 500); // AI thinking delay
+      refresh();
+    }, 500);
   }, [refresh, difficulty]);
 
   /**
@@ -325,86 +298,75 @@ export const useGameState = () => {
     const currentPlayer = gameEngine.getCurrentPlayer();
     const card = currentPlayer.removeCard(cardIndex);
 
-    // Add to discard pile instantly
     gameEngine.discardCard(card);
     setSelectedCardIndex(null);
     setHasDrawn(false);
     refresh();
 
-    // Start countdown for knock window (1 sec for hard, 3 sec for easy)
-    const knockWindowDuration = difficulty === 'hard' ? 1 : 3;
-    setKnockCountdown(knockWindowDuration);
+    // Check score after discard — if 0 and nobody has knocked, hold the turn for knock decision
+    const score = ScoreCalculator.calculateScore(currentPlayer.getHand(), gameEngine.getWildRank()).score;
+    if (score === 0 && gameEngine.knockedPlayerIndex === null) {
+      setCanKnockAfterDiscard(true);
+      return;
+    }
 
-    const countdownInterval = setInterval(() => {
-      setKnockCountdown(prev => {
-        if (prev === null || prev <= 1) {
-          clearInterval(countdownInterval);
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    // Score > 0: switch immediately
+    _switchAfterDiscard();
+  }, [gameEngine, hasDrawn, gameMode, playAITurn, refresh]);
 
-    // After countdown duration, automatically switch to next player
-    setTimeout(() => {
-      // Clear countdown first
-      setKnockCountdown(null);
+  const _switchAfterDiscard = useCallback(() => {
+    setCanKnockAfterDiscard(false);
+    gameEngine.switchPlayer();
 
-      // Player didn't knock, switch to next player
-      gameEngine.switchPlayer();
+    if (gameEngine.isRoundOver()) {
+      const result = gameEngine.endRound();
+      setRoundResult(result);
+      setGameState('round-end');
+      refresh();
+      return;
+    }
 
-      // Check if round is over AFTER switching
-      if (gameEngine.isRoundOver()) {
-        const result = gameEngine.endRound();
-        setRoundResult(result);
-        setGameState('round-end');
-        refresh();
-        return;
-      }
-
-      // If AI's turn, let it play
-      if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 1) {
-        setTimeout(() => {
-          playAITurn();
-        }, 300);
-      } else {
-        // PvP mode - refresh now since no AI turn
-        refresh();
-      }
-    }, knockWindowDuration * 1000);
-  }, [gameEngine, hasDrawn, gameMode, playAITurn, refresh, difficulty]);
+    if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 1) {
+      refresh();
+      setTimeout(() => playAITurn(), 400);
+    } else {
+      refresh();
+    }
+  }, [gameEngine, gameMode, playAITurn, refresh]);
 
   /**
    * Player knocks
    */
+  // Called after discard when score = 0 — player chose to knock
   const knock = useCallback(() => {
-    if (!gameEngine || gameEngine.knockedPlayerIndex !== null) return;
+    if (!gameEngine || !canKnockAfterDiscard || gameEngine.knockedPlayerIndex !== null) return;
 
-    // Clear the countdown timer
-    setKnockCountdown(null);
-
-    // No validation - player can knock anytime (even with score > 0)
-    // This allows for strategic mistakes and requires player attention
+    setCanKnockAfterDiscard(false);
     gameEngine.knock(gameEngine.currentPlayerIndex);
 
-    toast.success('You knocked! Opponent gets one final turn.', {
-      icon: '👊',
-      duration: 2500,
-    });
+    gameEngine.switchPlayer();
 
-    refresh();
+    if (gameEngine.isRoundOver()) {
+      const result = gameEngine.endRound();
+      setRoundResult(result);
+      setGameState('round-end');
+      refresh();
+      return;
+    }
 
-    // If playing against AI, let it take final turn
-    if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 0) {
-      gameEngine.switchPlayer();
-      setTimeout(() => {
-        playAITurn();
-      }, 1000);
+    if (gameMode === 'pvc' && gameEngine.currentPlayerIndex === 1) {
+      refresh();
+      setTimeout(() => playAITurn(), 800);
     } else {
-      gameEngine.switchPlayer();
       refresh();
     }
-  }, [gameEngine, gameMode, playAITurn, refresh]);
+  }, [gameEngine, canKnockAfterDiscard, gameMode, playAITurn, refresh]);
+
+  // Called after discard when score = 0 — player chose to pass (not knock)
+  const passKnock = useCallback(() => {
+    if (!gameEngine || !canKnockAfterDiscard) return;
+    _switchAfterDiscard();
+  }, [gameEngine, canKnockAfterDiscard, _switchAfterDiscard]);
 
   /**
    * Return to setup screen
@@ -469,11 +431,13 @@ export const useGameState = () => {
     hasDrawn,
     roundResult,
     knockCountdown,
+    canKnockAfterDiscard,
     startNewGame,
     startNextRound,
     drawCard,
     discardCard,
     knock,
+    passKnock,
     returnToSetup,
     reorderHand,
     refresh,

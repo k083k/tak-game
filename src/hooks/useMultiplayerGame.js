@@ -4,6 +4,7 @@ import { Player } from '../models/Player';
 import { GameEngine } from '../services/GameEngine';
 import { Card } from '../models/Card';
 import { MultiplayerService } from '../services/MultiplayerService';
+import { ScoreCalculator } from '../services/ScoreCalculator';
 
 // ─── Serialization ─────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export const useMultiplayerGame = () => {
   const [hasDrawn, setHasDrawn] = useState(false);
   const [roundResult, setRoundResult] = useState(null);
   const [knockCountdown, setKnockCountdown] = useState(null);
+  const [canKnockAfterDiscard, setCanKnockAfterDiscard] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [pausedBySeat, setPausedBySeat] = useState(null);
   const [, forceUpdate] = useState(0);
@@ -232,15 +234,6 @@ export const useMultiplayerGame = () => {
       }
     }
 
-    // Skip own echo: it's still my turn and my knock window timer is active
-    if (engine.currentPlayerIndex === 0 && knockTimerRef.current !== null) {
-      return;
-    }
-
-    // Clear local knock timers (opponent acted)
-    if (knockTimerRef.current) clearTimeout(knockTimerRef.current);
-    if (knockIntervalRef.current) clearInterval(knockIntervalRef.current);
-
     // Sync pause state
     setIsPaused(incomingPaused);
     setPausedBySeat(incomingPausedBySeat);
@@ -259,18 +252,7 @@ export const useMultiplayerGame = () => {
     setSelectedCardIndex(null);
     setOnlinePhase('playing');
 
-    if (knockWindowEndsAt && Date.now() < knockWindowEndsAt) {
-      const remaining = Math.ceil((knockWindowEndsAt - Date.now()) / 1000);
-      setKnockCountdown(remaining);
-      knockIntervalRef.current = setInterval(() => {
-        setKnockCountdown(prev => {
-          if (prev == null || prev <= 1) { clearInterval(knockIntervalRef.current); return null; }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      setKnockCountdown(null);
-    }
+    setKnockCountdown(null);
 
     refresh();
   }, [refresh, returnToSetup]);
@@ -387,54 +369,62 @@ export const useMultiplayerGame = () => {
     setHasDrawn(false);
     refresh();
 
-    const KNOCK_WINDOW = 3;
-    const knockWindowEndsAt = Date.now() + KNOCK_WINDOW * 1000;
-    setKnockCountdown(KNOCK_WINDOW);
-
-    pushState(gameEngine, false, gameState, roundResult, knockWindowEndsAt);
-
-    knockIntervalRef.current = setInterval(() => {
-      setKnockCountdown(prev => {
-        if (prev == null || prev <= 1) { clearInterval(knockIntervalRef.current); return null; }
-        return prev - 1;
-      });
-    }, 1000);
-
-    knockTimerRef.current = setTimeout(() => {
-      knockTimerRef.current = null;
-      setKnockCountdown(null);
-      gameEngine.switchPlayer();
-
-      if (gameEngine.isRoundOver()) {
-        const result = gameEngine.endRound();
-        setRoundResult(result);
-        setGameState('round-end');
-        refresh();
-        pushState(gameEngine, false, 'round-end', result);
-        return;
-      }
-
-      refresh();
+    // Check score after discard — if 0 and nobody knocked, hold turn for knock decision
+    const myPlayer = gameEngine.player1; // always "me" after perspective swap
+    const score = ScoreCalculator.calculateScore(myPlayer.getHand(), gameEngine.getWildRank()).score;
+    if (score === 0 && gameEngine.knockedPlayerIndex === null) {
+      setCanKnockAfterDiscard(true);
+      // Push state so opponent sees the discard, but it's still "my turn" pending knock decision
       pushState(gameEngine, false, gameState, roundResult);
-    }, KNOCK_WINDOW * 1000);
+      return;
+    }
+
+    _mpSwitchAfterDiscard();
   }, [gameEngine, isMyTurn, hasDrawn, gameState, roundResult, refresh, pushState]);
 
-  // ── Knock ──
-  const knock = useCallback(() => {
-    if (!gameEngine || !isMyTurn || gameEngine.knockedPlayerIndex !== null || isPausedRef.current) return;
-
-    if (knockTimerRef.current) clearTimeout(knockTimerRef.current);
-    if (knockIntervalRef.current) clearInterval(knockIntervalRef.current);
-    knockTimerRef.current = null;
-    setKnockCountdown(null);
-
-    gameEngine.knock(gameEngine.currentPlayerIndex);
-    toast.success('You knocked! Opponent gets one final turn.', { icon: '👊', duration: 2500 });
+  const _mpSwitchAfterDiscard = useCallback(() => {
+    setCanKnockAfterDiscard(false);
     gameEngine.switchPlayer();
-    refresh();
 
+    if (gameEngine.isRoundOver()) {
+      const result = gameEngine.endRound();
+      setRoundResult(result);
+      setGameState('round-end');
+      refresh();
+      pushState(gameEngine, false, 'round-end', result);
+      return;
+    }
+
+    refresh();
     pushState(gameEngine, false, gameState, roundResult);
-  }, [gameEngine, isMyTurn, gameState, roundResult, refresh, pushState]);
+  }, [gameEngine, gameState, roundResult, refresh, pushState]);
+
+  // ── Knock (after discard, when score = 0) ──
+  const knock = useCallback(() => {
+    if (!gameEngine || !isMyTurn || !canKnockAfterDiscard || gameEngine.knockedPlayerIndex !== null || isPausedRef.current) return;
+
+    setCanKnockAfterDiscard(false);
+    gameEngine.knock(gameEngine.currentPlayerIndex);
+    gameEngine.switchPlayer();
+
+    if (gameEngine.isRoundOver()) {
+      const result = gameEngine.endRound();
+      setRoundResult(result);
+      setGameState('round-end');
+      refresh();
+      pushState(gameEngine, false, 'round-end', result);
+      return;
+    }
+
+    refresh();
+    pushState(gameEngine, false, gameState, roundResult);
+  }, [gameEngine, isMyTurn, canKnockAfterDiscard, gameState, roundResult, refresh, pushState]);
+
+  // ── Pass Knock (after discard, score = 0, player chose not to knock) ──
+  const passKnock = useCallback(() => {
+    if (!gameEngine || !canKnockAfterDiscard) return;
+    _mpSwitchAfterDiscard();
+  }, [gameEngine, canKnockAfterDiscard, _mpSwitchAfterDiscard]);
 
   // ── Start Next Round (host only) ──
   const startNextRound = useCallback(() => {
@@ -546,9 +536,11 @@ export const useMultiplayerGame = () => {
     hasDrawn,
     roundResult,
     knockCountdown,
+    canKnockAfterDiscard,
     drawCard,
     discardCard,
     knock,
+    passKnock,
     startNextRound,
     reorderHand,
     returnToSetup,

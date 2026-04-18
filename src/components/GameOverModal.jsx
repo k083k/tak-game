@@ -38,7 +38,7 @@ const PlayerCard = ({ player, isWinner }) => (
         <div className={`text-5xl font-black mb-1 ${isWinner ? 'text-white' : 'text-white/60'}`}>
           {player.getTotalScore()}
         </div>
-        <p className="text-white/30 text-xs uppercase tracking-widest">Final Score</p>
+        <p className="text-white/30 text-xs uppercase tracking-widest">Total Points</p>
         {isWinner && (
           <motion.div
             initial={{ opacity: 0, y: 4 }}

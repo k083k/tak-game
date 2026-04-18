@@ -117,6 +117,8 @@ function App() {
           onDrawCard={game.drawCard}
           onDiscardCard={game.discardCard}
           onKnock={game.knock}
+          onPassKnock={game.passKnock}
+          canKnockAfterDiscard={game.canKnockAfterDiscard ?? false}
           onReorderHand={game.reorderHand}
           onExit={isOnlinePlaying ? handleLeaveOnline : game.returnToSetup}
           onNextRound={game.startNextRound}

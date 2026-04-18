@@ -2,6 +2,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CardComponent } from './CardComponent';
 import { CardValidator } from '../services/CardValidator';
 
+const getOverlap = (count) => {
+  if (count <= 5) return 4;
+  if (count <= 8) return 16;
+  if (count <= 11) return 24;
+  return 32;
+};
+
 export const PlayerPanel = ({
   player,
   wildRank,
@@ -18,204 +25,231 @@ export const PlayerPanel = ({
   difficulty,
   playerScore,
   canKnock,
+  canKnockAfterDiscard,
+  knockCountdown,
   onCardClick,
   onCardDoubleClick,
   onReorderHand,
   onKnock,
+  onPassKnock,
 }) => {
   const hand = player.getHand();
-
-  const getRowDistribution = (handSize) => {
-    if (handSize <= 3) return [handSize];
-    if (handSize === 4) return [2, 2];
-    if (handSize === 5) return [3, 2];
-    if (handSize === 6) return [3, 3];
-    if (handSize === 7) return [4, 3];
-    if (handSize === 8) return [3, 3, 2];
-    if (handSize === 9) return [3, 3, 3];
-    if (handSize === 10) return [3, 3, 2, 2];
-    if (handSize === 11) return [3, 3, 3, 2];
-    if (handSize === 12) return [3, 3, 3, 3];
-    if (handSize === 13) return [4, 4, 3, 2];
-    return [4, 4, 4, 2];
-  };
-
-  const splitIntoRows = (cards) => {
-    const distribution = getRowDistribution(cards.length);
-    const rows = [];
-    let startIndex = 0;
-    for (const rowSize of distribution) {
-      rows.push(cards.slice(startIndex, startIndex + rowSize));
-      startIndex += rowSize;
-    }
-    return rows;
-  };
-
-  const rows = splitIntoRows(hand);
   const isDraggable = !hasDrawn && !isRoundOver && isPlayerTurn && !isPaused;
+  const overlap = getOverlap(hand.length);
 
   return (
-    <div className={`w-80 h-full flex flex-col items-center justify-center bg-black/20 border-l border-white/10 p-2 gap-3 transition-all duration-300 relative ${
-      isPlayerTurn ? 'bg-black/10' : ''
+    <div className={`shrink-0 relative flex items-center gap-5 px-6 py-3 border-t border-white/[0.07] transition-colors duration-300 ${
+      isPlayerTurn ? 'bg-emerald-950/15' : 'bg-black/15'
     }`}>
-      {/* Active turn indicator — top edge glow */}
+      {/* Active turn glow — bottom edge */}
       {isPlayerTurn && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"
+          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"
         />
       )}
 
-      <div className="flex flex-col items-center gap-2 mb-4">
-        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all duration-300 ${
+      {/* Player info + knock */}
+      <div className="shrink-0 flex flex-col items-center gap-2 w-32">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all duration-300 ${
           isPlayerTurn
             ? 'bg-emerald-500/20 border-2 border-emerald-400/60 shadow-lg shadow-emerald-500/20'
-            : 'bg-white/10 border-2 border-white/20'
+            : 'bg-white/8 border border-white/15'
         }`}>
           {player.avatar}
         </div>
-        <div className="flex flex-col items-center gap-0.5">
-          <div className="text-white/40 text-[10px] uppercase tracking-wider text-center">
-            {player.name}
-          </div>
+
+        <div className="text-center">
+          <div className="text-white/40 text-[11px] uppercase tracking-wider truncate max-w-[7rem]">{player.name}</div>
           {isPlayerTurn && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-emerald-400 text-[10px] uppercase tracking-wider"
-            >
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="text-emerald-400 text-[11px] mt-0.5">
               Your turn
             </motion.div>
           )}
         </div>
-        <div className="text-xl font-bold text-white">{player.getTotalScore()}</div>
-      </div>
 
-      <div className="flex flex-col gap-1 items-center flex-1 justify-center overflow-y-auto overflow-x-hidden">
-        <AnimatePresence mode="popLayout">
-          {rows.map((row, rowIndex) => (
-            <div key={rowIndex} className="flex">
-              {row.map((card, cardIndex) => {
-                const globalIndex = rows.slice(0, rowIndex).reduce((sum, r) => sum + r.length, 0) + cardIndex;
-                const isSelectedForDiscard = hasDrawn && selectedCardIndex === globalIndex;
-                const isSelectedForMove = !hasDrawn && cardToMove === globalIndex;
-                const isAnyCardSelected = isSelectedForDiscard || isSelectedForMove;
+        {/* Score pills */}
+        <div className="flex flex-col items-center gap-1 w-full">
+          <div className="flex items-baseline gap-1">
+            <span className="text-white font-bold text-base">{player.getTotalScore()}</span>
+            <span className="text-white/25 text-[10px] uppercase tracking-wider">total</span>
+          </div>
+          <div className={`flex items-baseline gap-1 px-2 py-0.5 rounded-md transition-colors ${
+            playerScore === 0 ? 'bg-emerald-500/15 border border-emerald-400/25' : 'bg-white/5'
+          }`}>
+            <span className={`font-semibold text-sm ${playerScore === 0 ? 'text-emerald-300' : 'text-white/50'}`}>
+              {playerScore}
+            </span>
+            <span className="text-white/20 text-[10px] uppercase tracking-wider">hand</span>
+          </div>
+        </div>
 
-                return (
-                  <motion.div
-                    key={`${card.suit}-${card.rank}-${globalIndex}`}
-                    layout
-                    draggable={isDraggable}
-                    onDragStart={(e) => {
-                      if (!isDraggable) { e.preventDefault(); return; }
-                      setDraggedCard(globalIndex);
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onDragOver={(e) => {
-                      if (!isDraggable || draggedCard === null) return;
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                      if (draggedCard !== globalIndex) setDropTarget(globalIndex);
-                    }}
-                    onDragEnter={(e) => {
-                      if (!isDraggable || draggedCard === null) return;
-                      e.preventDefault();
-                      if (draggedCard !== globalIndex) setDropTarget(globalIndex);
-                    }}
-                    onDragLeave={() => {
-                      if (!isDraggable) return;
-                      if (dropTarget === globalIndex) setDropTarget(null);
-                    }}
-                    onDrop={(e) => {
-                      if (!isDraggable) return;
-                      e.preventDefault();
-                      if (draggedCard !== null && dropTarget !== null && draggedCard !== dropTarget) {
-                        onReorderHand(draggedCard, dropTarget);
-                      }
-                      setDraggedCard(null);
-                      setDropTarget(null);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedCard(null);
-                      setDropTarget(null);
-                    }}
-                    initial={{ x: -100, y: -50, opacity: 0, rotateY: 180, scale: 0.8 }}
-                    animate={{
-                      x: isAnyCardSelected ? 10 : 0,
-                      opacity: draggedCard === globalIndex ? 0.5 : 1,
-                      rotateY: 0,
-                      scale: isAnyCardSelected ? 1.15 : dropTarget === globalIndex ? 1.1 : 1,
-                    }}
-                    exit={{ x: -100, y: -50, opacity: 0, scale: 0.8 }}
-                    transition={{
-                      layout: { duration: 0.3, ease: 'easeInOut' },
-                      default: { delay: globalIndex * 0.05, duration: 0.3 },
-                    }}
-                    whileHover={{ x: 6, scale: 1.05 }}
-                    onClick={() => onCardClick(globalIndex)}
-                    onDoubleClick={() => onCardDoubleClick(globalIndex)}
-                    className={`cursor-pointer relative ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                    style={{
-                      marginLeft: cardIndex === 0 ? '0' : '-16px',
-                      zIndex: draggedCard === globalIndex ? 50 : dropTarget === globalIndex ? 10 : 1,
-                    }}
-                  >
-                    {isSelectedForMove && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-lg z-10">
-                        <span className="text-white text-[10px] font-bold" style={{ lineHeight: 0 }}>⊕</span>
-                      </div>
-                    )}
-                    {dropTarget === globalIndex && draggedCard !== null && draggedCard !== globalIndex && (
-                      <div className="absolute inset-0 border-2 border-blue-400 rounded-lg pointer-events-none" />
-                    )}
-                    <CardComponent
-                      card={card}
-                      isWild={CardValidator.isWildCard(card, wildRank)}
-                      isSelected={isSelectedForDiscard}
-                      size="sm"
-                    />
-                  </motion.div>
-                );
-              })}
-            </div>
-          ))}
+        <AnimatePresence mode="wait">
+          {canKnockAfterDiscard ? (
+            <motion.div
+              key="knock-decision"
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+              className="flex flex-col gap-2 w-full"
+            >
+              {/* Knock button */}
+              <motion.button
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.95 }}
+                animate={{
+                  boxShadow: [
+                    '0 0 0px 0px rgba(251,191,36,0)',
+                    '0 0 16px 3px rgba(251,191,36,0.35)',
+                    '0 0 0px 0px rgba(251,191,36,0)',
+                  ]
+                }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                onClick={onKnock}
+                className="relative w-full py-2.5 rounded-xl overflow-hidden cursor-pointer group"
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+              >
+                <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-150 rounded-xl" />
+                <div className="relative flex items-center justify-center gap-1.5">
+                  <span className="text-sm leading-none">👊</span>
+                  <span className="text-slate-900 font-black text-xs tracking-widest">KNOCK</span>
+                </div>
+              </motion.button>
+
+              {/* Pass button */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={onPassKnock}
+                className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/40 hover:text-white/70 font-semibold text-xs tracking-wide transition-all cursor-pointer"
+              >
+                Pass turn
+              </motion.button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="knock-idle"
+              className="w-full py-2 rounded-xl bg-white/4 border border-white/8 text-white/18 font-bold text-xs tracking-widest text-center cursor-not-allowed select-none"
+            >
+              KNOCK
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
-      <div className="flex flex-col items-center gap-2 mt-2">
-        {difficulty === 'easy' && (
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-white/50 text-[10px]">Score</span>
-            <span className={`text-base font-bold px-2 py-0.5 rounded-lg ${
-              playerScore === 0 ? 'bg-white/10 text-white' : 'bg-white/5 text-white/80'
-            }`}>
-              {playerScore}
-            </span>
-          </div>
-        )}
+      {/* Card fan */}
+      <div className="flex-1 flex justify-center items-center overflow-hidden">
+        <AnimatePresence mode="popLayout">
+          {hand.map((card, i) => {
+            const isSelectedForDiscard = hasDrawn && selectedCardIndex === i;
+            const isSelectedForMove = !hasDrawn && cardToMove === i;
+            const isAnySelected = isSelectedForDiscard || isSelectedForMove;
 
-        <motion.button
-          whileHover={{ scale: canKnock ? 1.05 : 1 }}
-          whileTap={{ scale: canKnock ? 0.95 : 1 }}
-          animate={canKnock ? {
-            boxShadow: [
-              '0 0 0px rgba(255,255,255,0)',
-              '0 0 18px rgba(255,255,255,0.5)',
-              '0 0 0px rgba(255,255,255,0)',
-            ],
-          } : {}}
-          transition={canKnock ? { duration: 1.1, repeat: Infinity, ease: 'easeInOut' } : {}}
-          onClick={onKnock}
-          disabled={!canKnock}
-          className={`px-4 py-2 rounded-lg font-semibold text-xs transition-all ${
-            canKnock
-              ? 'bg-white text-slate-900 shadow-lg cursor-pointer hover:shadow-xl'
-              : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-40'
-          }`}
-        >
-          KNOCK
-        </motion.button>
+            return (
+              <motion.div
+                key={`${card.suit}-${card.rank}-${i}`}
+                layout
+                draggable={isDraggable}
+                onDragStart={(e) => {
+                  if (!isDraggable) { e.preventDefault(); return; }
+                  setDraggedCard(i);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(e) => {
+                  if (!isDraggable || draggedCard === null) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (draggedCard !== i) setDropTarget(i);
+                }}
+                onDragEnter={(e) => {
+                  if (!isDraggable || draggedCard === null) return;
+                  e.preventDefault();
+                  if (draggedCard !== i) setDropTarget(i);
+                }}
+                onDragLeave={() => {
+                  if (!isDraggable) return;
+                  if (dropTarget === i) setDropTarget(null);
+                }}
+                onDrop={(e) => {
+                  if (!isDraggable) return;
+                  e.preventDefault();
+                  if (draggedCard !== null && dropTarget !== null && draggedCard !== dropTarget) {
+                    onReorderHand(draggedCard, dropTarget);
+                  }
+                  setDraggedCard(null);
+                  setDropTarget(null);
+                }}
+                onDragEnd={() => {
+                  setDraggedCard(null);
+                  setDropTarget(null);
+                }}
+                initial={{ y: 40, opacity: 0, rotateY: 90 }}
+                animate={{
+                  y: isAnySelected ? -14 : 0,
+                  opacity: draggedCard === i ? 0.4 : 1,
+                  rotateY: 0,
+                  scale: isAnySelected ? 1.12 : dropTarget === i ? 1.08 : 1,
+                }}
+                exit={{ y: 40, opacity: 0, scale: 0.8 }}
+                transition={{
+                  layout: { duration: 0.25, ease: 'easeInOut' },
+                  default: { delay: i * 0.04, duration: 0.25 },
+                }}
+                whileHover={!isAnySelected ? { y: -8, scale: 1.06 } : {}}
+                onClick={() => onCardClick(i)}
+                onDoubleClick={() => onCardDoubleClick(i)}
+                className={`relative ${isDraggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                style={{
+                  marginLeft: i === 0 ? 0 : `-${overlap}px`,
+                  zIndex: isAnySelected || draggedCard === i ? 50 : dropTarget === i ? 10 : i,
+                }}
+              >
+                {isSelectedForMove && (
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center shadow-lg z-10">
+                    <span className="text-white text-[9px] font-bold">✕</span>
+                  </div>
+                )}
+                {dropTarget === i && draggedCard !== null && draggedCard !== i && (
+                  <div className="absolute inset-0 border-2 border-blue-400 rounded-lg pointer-events-none z-20" />
+                )}
+                <CardComponent
+                  card={card}
+                  isWild={CardValidator.isWildCard(card, wildRank)}
+                  isSelected={isSelectedForDiscard}
+                  size="md"
+                />
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* Knock countdown + hint */}
+      <div className="shrink-0 w-16 flex flex-col items-center gap-1">
+        {knockCountdown !== null ? (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="flex flex-col items-center"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.25, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+              className="text-3xl font-black text-white leading-none"
+            >
+              {knockCountdown}
+            </motion.div>
+            <div className="text-white/30 text-[9px] uppercase tracking-wider mt-0.5">knock</div>
+          </motion.div>
+        ) : (
+          hasDrawn && (
+            <div className="text-white/25 text-[10px] text-center leading-tight">
+              double-tap<br/>to discard
+            </div>
+          )
+        )}
       </div>
     </div>
   );
