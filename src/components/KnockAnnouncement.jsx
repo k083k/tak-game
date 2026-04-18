@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const KnockAnnouncement = ({ knockerName, isVisible, onDone }) => {
+export const KnockAnnouncement = ({ knockerName, isMyKnock, isVisible, onDone }) => {
   useEffect(() => {
     if (!isVisible) return;
-    const t = setTimeout(onDone, 2200);
+    const t = setTimeout(onDone, 1200);
     return () => clearTimeout(t);
   }, [isVisible, onDone]);
 
@@ -66,7 +66,7 @@ export const KnockAnnouncement = ({ knockerName, isVisible, onDone }) => {
                 transition={{ delay: 0.5 }}
                 className="text-white/40 text-xs font-medium tracking-wide"
               >
-                One final turn each
+                {isMyKnock ? 'Opponent gets one final turn' : 'You get one final turn'}
               </motion.div>
             </div>
           </motion.div>

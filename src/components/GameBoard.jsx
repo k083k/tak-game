@@ -48,8 +48,8 @@ export const GameBoard = ({
     if (!gameEngine) return;
     const ki = gameEngine.knockedPlayerIndex;
     if (ki !== null && prevKnockedRef.current === null) {
-      const knockerName = ki === myPlayerIndex ? myPlayer.name : opponentPlayer.name;
-      setKnockAnnouncement({ name: knockerName });
+      const isMe = ki === myPlayerIndex;
+      setKnockAnnouncement({ name: isMe ? myPlayer.name : opponentPlayer.name, isMe });
     }
     prevKnockedRef.current = ki;
   }, [gameEngine?.knockedPlayerIndex]);
@@ -233,6 +233,7 @@ export const GameBoard = ({
 
       <KnockAnnouncement
         knockerName={knockAnnouncement?.name}
+        isMyKnock={knockAnnouncement?.isMe ?? false}
         isVisible={knockAnnouncement !== null}
         onDone={() => setKnockAnnouncement(null)}
       />
