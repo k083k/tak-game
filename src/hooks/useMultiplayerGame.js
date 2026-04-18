@@ -128,8 +128,8 @@ export const useMultiplayerGame = () => {
 
   const refresh = useCallback(() => forceUpdate(p => p + 1), []);
 
-  // Is it my turn? (uses canonical currentPlayerIndex compared to my seat)
-  const isMyTurn = gameEngine != null && gameEngine.currentPlayerIndex === mySeat;
+  // After perspective swap, local engine always has me as player1 (index 0)
+  const isMyTurn = gameEngine != null && gameEngine.currentPlayerIndex === 0;
 
   // ── Push state to DB (always serialize in canonical form: seat0=player1) ──
   const pushState = useCallback(async (engine, hDrawn, gState, rResult, knockWindowEndsAt = null) => {
