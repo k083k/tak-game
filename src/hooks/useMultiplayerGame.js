@@ -33,8 +33,7 @@ function deserializeRoundResult(rr) {
   return { ...rr, player1: deserializePlayerResult(rr.player1), player2: deserializePlayerResult(rr.player2) };
 }
 
-// Serialize from canonical form (seat0=player1, seat1=player2)
-function serialize(engine, hasDrawn, gameState, roundResult, knockWindowEndsAt = null) {
+function serialize(engine, hasDrawn, gameState, roundResult, knockWindowEndsAt = null, paused = false, pausedBySeat = null) {
   return {
     currentRound: engine.currentRound,
     currentPlayerIndex: engine.currentPlayerIndex,
@@ -60,10 +59,11 @@ function serialize(engine, hasDrawn, gameState, roundResult, knockWindowEndsAt =
     gameState,
     roundResult: serializeRoundResult(roundResult),
     knockWindowEndsAt,
+    paused,
+    pausedBySeat,
   };
 }
 
-// Deserialize to canonical engine (seat0=player1, seat1=player2)
 function deserialize(data) {
   const p1 = new Player(data.player1.name, true, data.player1.avatar);
   p1.roundScores = data.player1.roundScores;
@@ -89,27 +89,30 @@ function deserialize(data) {
     gameState: data.gameState ?? 'playing',
     roundResult: deserializeRoundResult(data.roundResult),
     knockWindowEndsAt: data.knockWindowEndsAt ?? null,
+    paused: data.paused ?? false,
+    pausedBySeat: data.pausedBySeat ?? null,
   };
 }
 
 // ─── Hook ──────────────────────────────────────────────────────────────────
 
 export const useMultiplayerGame = () => {
-  const [onlinePhase, setOnlinePhase] = useState('idle'); // 'idle' | 'lobby' | 'playing'
+  const [onlinePhase, setOnlinePhase] = useState('idle');
   const [gameId, setGameId] = useState(null);
   const [gameCode, setGameCode] = useState(null);
-  const [mySeat, setMySeat] = useState(null); // 0 or 1
+  const [mySeat, setMySeat] = useState(null);
   const [isHost, setIsHost] = useState(false);
   const [lobbyPlayers, setLobbyPlayers] = useState([]);
   const [playerId] = useState(() => MultiplayerService.getOrCreatePlayerId());
 
-  // Game state (same shape as useGameState for GameBoard compatibility)
   const [gameEngine, setGameEngine] = useState(null);
   const [gameState, setGameState] = useState('playing');
   const [selectedCardIndex, setSelectedCardIndex] = useState(null);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [roundResult, setRoundResult] = useState(null);
   const [knockCountdown, setKnockCountdown] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pausedBySeat, setPausedBySeat] = useState(null);
   const [, forceUpdate] = useState(0);
 
   const unsubPlayersRef = useRef(null);
@@ -117,29 +120,63 @@ export const useMultiplayerGame = () => {
   const knockTimerRef = useRef(null);
   const knockIntervalRef = useRef(null);
 
-  // Refs so callbacks always see latest values without stale closures
   const mySeatRef = useRef(null);
   const isHostRef = useRef(false);
   const gameIdRef = useRef(null);
+  const isPausedRef = useRef(false);
+  const pausedBySeatRef = useRef(null);
 
   useEffect(() => { mySeatRef.current = mySeat; }, [mySeat]);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
   useEffect(() => { gameIdRef.current = gameId; }, [gameId]);
+  useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+  useEffect(() => { pausedBySeatRef.current = pausedBySeat; }, [pausedBySeat]);
 
   const refresh = useCallback(() => forceUpdate(p => p + 1), []);
 
-  // After perspective swap, local engine always has me as player1 (index 0)
   const isMyTurn = gameEngine != null && gameEngine.currentPlayerIndex === 0;
 
-  // ── Push state to DB (always serialize in canonical form: seat0=player1) ──
-  const pushState = useCallback(async (engine, hDrawn, gState, rResult, knockWindowEndsAt = null) => {
+  // ── Return to Setup (defined early so handleRemoteState can use it) ──
+  const returnToSetup = useCallback(() => {
+    if (unsubPlayersRef.current) unsubPlayersRef.current();
+    if (unsubStateRef.current) unsubStateRef.current();
+    if (knockTimerRef.current) clearTimeout(knockTimerRef.current);
+    if (knockIntervalRef.current) clearInterval(knockIntervalRef.current);
+
+    setOnlinePhase('idle');
+    setGameId(null);
+    setGameCode(null);
+    setMySeat(null);
+    setIsHost(false);
+    setLobbyPlayers([]);
+    setGameEngine(null);
+    setGameState('playing');
+    setHasDrawn(false);
+    setRoundResult(null);
+    setSelectedCardIndex(null);
+    setKnockCountdown(null);
+    setIsPaused(false);
+    setPausedBySeat(null);
+
+    gameIdRef.current = null;
+    mySeatRef.current = null;
+    isHostRef.current = false;
+    isPausedRef.current = false;
+    pausedBySeatRef.current = null;
+  }, []);
+
+  // ── Push state to DB ──
+  const pushState = useCallback(async (engine, hDrawn, gState, rResult, knockWindowEndsAt = null, pauseOverride = null) => {
     const id = gameIdRef.current;
     if (!id) return;
     const seat = mySeatRef.current;
+
+    const pausedVal = pauseOverride !== null ? pauseOverride.paused : isPausedRef.current;
+    const pausedBySeatVal = pauseOverride !== null ? pauseOverride.pausedBySeat : pausedBySeatRef.current;
+
     let canonical = engine;
     let canonicalRoundResult = rResult;
 
-    // Seat1 player has player1=them in local engine — swap back to canonical before pushing
     if (seat === 1) {
       const temp = engine.player1;
       engine.player1 = engine.player2;
@@ -149,16 +186,14 @@ export const useMultiplayerGame = () => {
       if (engine.knockedPlayerIndex !== null) {
         engine.knockedPlayerIndex = engine.knockedPlayerIndex === 0 ? 1 : 0;
       }
-      // Swap roundResult player1/player2
       if (rResult) {
         canonicalRoundResult = { ...rResult, player1: rResult.player2, player2: rResult.player1 };
       }
       canonical = engine;
     }
 
-    await MultiplayerService.pushGameState(id, serialize(canonical, hDrawn, gState, canonicalRoundResult, knockWindowEndsAt));
+    await MultiplayerService.pushGameState(id, serialize(canonical, hDrawn, gState, canonicalRoundResult, knockWindowEndsAt, pausedVal, pausedBySeatVal));
 
-    // Swap local engine back to my perspective after pushing
     if (seat === 1) {
       const temp = engine.player1;
       engine.player1 = engine.player2;
@@ -175,12 +210,14 @@ export const useMultiplayerGame = () => {
   const handleRemoteState = useCallback((data) => {
     if (!data) return;
 
-    // Clear any local knock timers
-    if (knockTimerRef.current) clearTimeout(knockTimerRef.current);
-    if (knockIntervalRef.current) clearInterval(knockIntervalRef.current);
+    // Opponent left the game
+    if (data.abandoned) {
+      toast('Opponent left the game.', { icon: '👋', duration: 4000 });
+      returnToSetup();
+      return;
+    }
 
-    const { engine, hasDrawn: hDrawn, gameState: gState, roundResult: rResult, knockWindowEndsAt } = deserialize(data);
-
+    const { engine, hasDrawn: hDrawn, gameState: gState, roundResult: rResult, knockWindowEndsAt, paused: incomingPaused, pausedBySeat: incomingPausedBySeat } = deserialize(data);
     const seat = mySeatRef.current;
 
     // Orient engine from my perspective: player1 = me, player2 = opponent
@@ -195,7 +232,21 @@ export const useMultiplayerGame = () => {
       }
     }
 
-    // Orient roundResult from my perspective
+    // Skip own echo: it's still my turn and my knock window timer is active
+    if (engine.currentPlayerIndex === 0 && knockTimerRef.current !== null) {
+      return;
+    }
+
+    // Clear local knock timers (opponent acted)
+    if (knockTimerRef.current) clearTimeout(knockTimerRef.current);
+    if (knockIntervalRef.current) clearInterval(knockIntervalRef.current);
+
+    // Sync pause state
+    setIsPaused(incomingPaused);
+    setPausedBySeat(incomingPausedBySeat);
+    isPausedRef.current = incomingPaused;
+    pausedBySeatRef.current = incomingPausedBySeat;
+
     let orientedRoundResult = rResult;
     if (seat === 1 && rResult) {
       orientedRoundResult = { ...rResult, player1: rResult.player2, player2: rResult.player1 };
@@ -208,7 +259,6 @@ export const useMultiplayerGame = () => {
     setSelectedCardIndex(null);
     setOnlinePhase('playing');
 
-    // Show knock countdown for the opponent's discard window
     if (knockWindowEndsAt && Date.now() < knockWindowEndsAt) {
       const remaining = Math.ceil((knockWindowEndsAt - Date.now()) / 1000);
       setKnockCountdown(remaining);
@@ -223,7 +273,7 @@ export const useMultiplayerGame = () => {
     }
 
     refresh();
-  }, [refresh]);
+  }, [refresh, returnToSetup]);
 
   // ── Create Game ──
   const createGame = useCallback(async (playerName, avatar) => {
@@ -293,7 +343,6 @@ export const useMultiplayerGame = () => {
       const engine = new GameEngine(player1, player2);
       engine.startRound();
 
-      // Host is seat0 → player1 is already "me", no perspective swap needed
       setGameEngine(engine);
       setHasDrawn(false);
       setGameState('playing');
@@ -308,7 +357,7 @@ export const useMultiplayerGame = () => {
 
   // ── Draw Card ──
   const drawCard = useCallback((fromDiscard) => {
-    if (!gameEngine || !isMyTurn || hasDrawn || gameEngine.isRoundOver()) return;
+    if (!gameEngine || !isMyTurn || hasDrawn || gameEngine.isRoundOver() || isPausedRef.current) return;
 
     const currentPlayer = gameEngine.getCurrentPlayer();
     const card = gameEngine.drawCard(fromDiscard);
@@ -320,17 +369,16 @@ export const useMultiplayerGame = () => {
       pushState(gameEngine, true, gameState, roundResult);
     } else {
       const result = gameEngine.endRound();
-      const oriented = result;
-      setRoundResult(oriented);
+      setRoundResult(result);
       setGameState('round-end');
       refresh();
-      pushState(gameEngine, false, 'round-end', oriented);
+      pushState(gameEngine, false, 'round-end', result);
     }
   }, [gameEngine, isMyTurn, hasDrawn, gameState, roundResult, refresh, pushState]);
 
   // ── Discard Card ──
   const discardCard = useCallback((cardIndex) => {
-    if (!gameEngine || !isMyTurn || !hasDrawn) return;
+    if (!gameEngine || !isMyTurn || !hasDrawn || isPausedRef.current) return;
 
     const currentPlayer = gameEngine.getCurrentPlayer();
     const card = currentPlayer.removeCard(cardIndex);
@@ -343,7 +391,6 @@ export const useMultiplayerGame = () => {
     const knockWindowEndsAt = Date.now() + KNOCK_WINDOW * 1000;
     setKnockCountdown(KNOCK_WINDOW);
 
-    // Push immediately so opponent sees the discard + knows knock window is active
     pushState(gameEngine, false, gameState, roundResult, knockWindowEndsAt);
 
     knockIntervalRef.current = setInterval(() => {
@@ -354,6 +401,7 @@ export const useMultiplayerGame = () => {
     }, 1000);
 
     knockTimerRef.current = setTimeout(() => {
+      knockTimerRef.current = null;
       setKnockCountdown(null);
       gameEngine.switchPlayer();
 
@@ -373,10 +421,11 @@ export const useMultiplayerGame = () => {
 
   // ── Knock ──
   const knock = useCallback(() => {
-    if (!gameEngine || !isMyTurn || gameEngine.knockedPlayerIndex !== null) return;
+    if (!gameEngine || !isMyTurn || gameEngine.knockedPlayerIndex !== null || isPausedRef.current) return;
 
     if (knockTimerRef.current) clearTimeout(knockTimerRef.current);
     if (knockIntervalRef.current) clearInterval(knockIntervalRef.current);
+    knockTimerRef.current = null;
     setKnockCountdown(null);
 
     gameEngine.knock(gameEngine.currentPlayerIndex);
@@ -387,7 +436,7 @@ export const useMultiplayerGame = () => {
     pushState(gameEngine, false, gameState, roundResult);
   }, [gameEngine, isMyTurn, gameState, roundResult, refresh, pushState]);
 
-  // ── Start Next Round (host only advances — prevents desync from two random deals) ──
+  // ── Start Next Round (host only) ──
   const startNextRound = useCallback(() => {
     if (!gameEngine) return;
 
@@ -414,7 +463,7 @@ export const useMultiplayerGame = () => {
     pushState(gameEngine, false, 'playing', null);
   }, [gameEngine, isHost, refresh, pushState]);
 
-  // ── Reorder Hand (local only — cosmetic) ──
+  // ── Reorder Hand (local only) ──
   const reorderHand = useCallback((fromIndex, toIndex) => {
     if (!gameEngine) return;
 
@@ -432,30 +481,37 @@ export const useMultiplayerGame = () => {
     refresh();
   }, [gameEngine, selectedCardIndex, refresh]);
 
-  // ── Return to Setup ──
-  const returnToSetup = useCallback(() => {
-    if (unsubPlayersRef.current) unsubPlayersRef.current();
-    if (unsubStateRef.current) unsubStateRef.current();
-    if (knockTimerRef.current) clearTimeout(knockTimerRef.current);
-    if (knockIntervalRef.current) clearInterval(knockIntervalRef.current);
+  // ── Pause Game ──
+  const pauseGame = useCallback(async () => {
+    if (!gameEngine) return;
+    const seat = mySeatRef.current;
+    setIsPaused(true);
+    setPausedBySeat(seat);
+    isPausedRef.current = true;
+    pausedBySeatRef.current = seat;
+    await pushState(gameEngine, hasDrawn, gameState, roundResult, null, { paused: true, pausedBySeat: seat });
+  }, [gameEngine, hasDrawn, gameState, roundResult, pushState]);
 
-    setOnlinePhase('idle');
-    setGameId(null);
-    setGameCode(null);
-    setMySeat(null);
-    setIsHost(false);
-    setLobbyPlayers([]);
-    setGameEngine(null);
-    setGameState('playing');
-    setHasDrawn(false);
-    setRoundResult(null);
-    setSelectedCardIndex(null);
-    setKnockCountdown(null);
+  // ── Resume Game ──
+  const resumeGame = useCallback(async () => {
+    if (!gameEngine) return;
+    setIsPaused(false);
+    setPausedBySeat(null);
+    isPausedRef.current = false;
+    pausedBySeatRef.current = null;
+    await pushState(gameEngine, hasDrawn, gameState, roundResult, null, { paused: false, pausedBySeat: null });
+  }, [gameEngine, hasDrawn, gameState, roundResult, pushState]);
 
-    gameIdRef.current = null;
-    mySeatRef.current = null;
-    isHostRef.current = false;
-  }, []);
+  // ── Abandon Game ──
+  const abandonGame = useCallback(async () => {
+    const id = gameIdRef.current;
+    if (id) {
+      try {
+        await MultiplayerService.pushGameState(id, { abandoned: true });
+      } catch (_) {}
+    }
+    returnToSetup();
+  }, [returnToSetup]);
 
   useEffect(() => {
     return () => {
@@ -467,7 +523,6 @@ export const useMultiplayerGame = () => {
   }, []);
 
   return {
-    // Online-specific
     onlinePhase,
     gameCode,
     mySeat,
@@ -475,11 +530,15 @@ export const useMultiplayerGame = () => {
     lobbyPlayers,
     playerId,
     isMyTurn,
+    isPaused,
+    pausedBySeat,
     createGame,
     joinGame,
     startGame,
+    pauseGame,
+    resumeGame,
+    abandonGame,
 
-    // Game state (GameBoard-compatible)
     gameEngine,
     gameState,
     selectedCardIndex,

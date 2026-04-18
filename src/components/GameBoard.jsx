@@ -27,12 +27,21 @@ export const GameBoard = ({
   myPlayerIndex = 0,
   isOnline = false,
   isMyTurn = true,
+  // Online pause sync
+  externalIsPaused = false,
+  canResumePause = true,
+  onPauseGame = null,
+  onResumeGame = null,
 }) => {
   const [showExitModal, setShowExitModal] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [localIsPaused, setLocalIsPaused] = useState(false);
+  const isPaused = isOnline ? externalIsPaused : localIsPaused;
   const [cardToMove, setCardToMove] = useState(null);
   const [draggedCard, setDraggedCard] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+
+  const handlePause = isOnline && onPauseGame ? onPauseGame : () => setLocalIsPaused(true);
+  const handleResume = isOnline && onResumeGame ? onResumeGame : () => setLocalIsPaused(false);
 
   // When drawing, clear any pending card move selection
   const effectiveCardToMove = hasDrawn ? null : cardToMove;
@@ -124,14 +133,12 @@ export const GameBoard = ({
               className="h-8 px-2.5 rounded-lg bg-white/8 hover:bg-white/15 border border-white/12 hover:border-white/25 flex items-center justify-center text-white/50 hover:text-white/90 transition-all text-sm font-bold"
               title="How to Play"
             >?</motion.button>
-            {!isOnline && (
-              <motion.button
-                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={() => setIsPaused(true)}
-                className="h-8 px-2.5 rounded-lg bg-white/8 hover:bg-white/15 border border-white/12 hover:border-white/25 flex items-center justify-center text-white/50 hover:text-white/90 transition-all text-sm"
-                title="Pause"
-              >⏸</motion.button>
-            )}
+            <motion.button
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              onClick={handlePause}
+              className="h-8 px-2.5 rounded-lg bg-white/8 hover:bg-white/15 border border-white/12 hover:border-white/25 flex items-center justify-center text-white/50 hover:text-white/90 transition-all text-sm"
+              title="Pause"
+            >⏸</motion.button>
             <div className="w-px h-5 bg-white/15" />
             <motion.button
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
@@ -207,8 +214,9 @@ export const GameBoard = ({
       <AnimatePresence>
         {isPaused && (
           <PauseMenu
-            onResume={() => setIsPaused(false)}
-            onExit={() => { setIsPaused(false); setShowExitModal(true); }}
+            onResume={handleResume}
+            onExit={() => { handleResume(); setShowExitModal(true); }}
+            canResume={isOnline ? canResumePause : true}
           />
         )}
       </AnimatePresence>

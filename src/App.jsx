@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Analytics } from '@vercel/analytics/react';
 import { useGameState } from './hooks/useGameState';
@@ -36,10 +36,18 @@ function App() {
   const handleGoOnline = () => setInOnlineFlow(true);
 
   const handleLeaveOnline = () => {
-    setInOnlineFlow(false);
-    online.returnToSetup();
+    online.abandonGame();
     local.setGameMode('pvc');
+    setInOnlineFlow(false);
   };
+
+  // Auto-close online flow when the hook resets to idle (e.g. opponent abandoned)
+  useEffect(() => {
+    if (inOnlineFlow && online.onlinePhase === 'idle') {
+      setInOnlineFlow(false);
+      local.setGameMode('pvc');
+    }
+  }, [inOnlineFlow, online.onlinePhase]);
 
   if (!isLargeEnough) return <ScreenSizeWarning />;
 
@@ -117,6 +125,10 @@ function App() {
           myPlayerIndex={0}
           isOnline={isOnlinePlaying}
           isMyTurn={isOnlinePlaying ? online.isMyTurn : true}
+          externalIsPaused={isOnlinePlaying ? online.isPaused : false}
+          canResumePause={isOnlinePlaying ? online.mySeat === online.pausedBySeat : true}
+          onPauseGame={isOnlinePlaying ? online.pauseGame : null}
+          onResumeGame={isOnlinePlaying ? online.resumeGame : null}
         />
       )}
 
