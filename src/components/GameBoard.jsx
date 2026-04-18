@@ -117,25 +117,29 @@ export const GameBoard = ({
             <span className="mx-3 text-white/30">•</span>
             Wild <span className="text-orange-400 font-black">{getWildDisplay()}</span>
           </div>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
             <motion.button
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               onClick={onShowHowToPlay}
-              className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
-              title="Help"
+              className="h-8 px-2.5 rounded-lg bg-white/8 hover:bg-white/15 border border-white/12 hover:border-white/25 flex items-center justify-center text-white/50 hover:text-white/90 transition-all text-sm font-bold"
+              title="How to Play"
             >?</motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              onClick={() => setIsPaused(true)}
-              className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-base"
-              title="Pause Game"
-            >⏸</motion.button>
+            {!isOnline && (
+              <motion.button
+                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                onClick={() => setIsPaused(true)}
+                className="h-8 px-2.5 rounded-lg bg-white/8 hover:bg-white/15 border border-white/12 hover:border-white/25 flex items-center justify-center text-white/50 hover:text-white/90 transition-all text-sm"
+                title="Pause"
+              >⏸</motion.button>
+            )}
+            <div className="w-px h-5 bg-white/15" />
             <motion.button
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               onClick={() => setShowExitModal(true)}
-              className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors"
-              title="Exit Game"
-            >✕</motion.button>
+              className="h-8 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 flex items-center gap-1.5 text-red-400/70 hover:text-red-400 transition-all text-xs font-semibold tracking-wide"
+            >
+              <span>✕</span><span>EXIT</span>
+            </motion.button>
           </div>
         </div>
 

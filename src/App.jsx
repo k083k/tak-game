@@ -124,6 +124,7 @@ function App() {
         <GameOverModal
           gameEngine={game.gameEngine}
           onNewGame={isOnlinePlaying ? handleLeaveOnline : game.returnToSetup}
+          isOnline={isOnlinePlaying}
         />
       )}
 

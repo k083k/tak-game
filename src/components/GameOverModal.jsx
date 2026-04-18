@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 const PlayerCard = ({ player, isWinner }) => (
@@ -52,7 +53,20 @@ const PlayerCard = ({ player, isWinner }) => (
     </motion.div>
   );
 
-export const GameOverModal = ({ gameEngine, onNewGame }) => {
+export const GameOverModal = ({ gameEngine, onNewGame, isOnline = false }) => {
+  const [countdown, setCountdown] = useState(isOnline ? 10 : null);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    const interval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(interval); onNewGame(); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isOnline, onNewGame]);
+
   if (!gameEngine || !gameEngine.isGameOver()) return null;
 
   const winner = gameEngine.getWinner();
@@ -106,7 +120,7 @@ export const GameOverModal = ({ gameEngine, onNewGame }) => {
           onClick={onNewGame}
           className="w-full py-3.5 bg-white text-slate-900 rounded-xl font-black text-base shadow-xl hover:shadow-2xl transition-shadow"
         >
-          PLAY AGAIN
+          {isOnline ? `BACK TO LOBBY${countdown ? ` (${countdown})` : ''}` : 'PLAY AGAIN'}
         </motion.button>
       </motion.div>
     </motion.div>
