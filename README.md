@@ -1,4 +1,4 @@
-# Tac — Card Game
+# Tak — Card Game
 
 A 2-player rummy-style card game built with React and Vite.
 

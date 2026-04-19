@@ -135,7 +135,7 @@ export const GameBoard = ({
 
       {/* Top bar */}
       <div className="shrink-0 px-4 py-2 bg-black/25 border-b border-white/[0.06] flex items-center justify-between">
-        <div className="text-white/20 font-black text-sm tracking-widest uppercase select-none">TAC</div>
+        <div className="text-white/20 font-black text-sm tracking-widest uppercase select-none">TAK</div>
 
         <div className="text-white/80 text-sm font-medium tracking-wide text-center">
           Round <span className="font-bold text-white">{gameEngine.currentRound}</span>

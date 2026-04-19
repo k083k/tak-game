@@ -131,7 +131,7 @@ export const SetupScreen = ({
             className="text-8xl font-black text-white tracking-tighter leading-none"
             style={{ textShadow: '0 0 80px rgba(52,211,153,0.45), 0 0 160px rgba(52,211,153,0.2)' }}
           >
-            TAC
+            TAK
           </h1>
           <p className="text-emerald-400/60 text-xs tracking-[0.25em] uppercase mt-2 font-medium">
             Rummy Card Game · 11 Rounds
