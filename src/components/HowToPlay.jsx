@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../models/Card';
 import { CardComponent } from './CardComponent';
@@ -294,100 +294,67 @@ const WildStepper = () => {
 
 // ─── Knock Mechanic Demo ───────────────────────────────────────────────────────
 const KnockDemo = () => {
-  const [counting, setCounting] = useState(false);
-  const [count, setCount] = useState(3);
-  const [knocked, setKnocked] = useState(false);
-  const [missed, setMissed] = useState(false);
-  const timerRef = useRef(null);
-  const intervalRef = useRef(null);
-
-  const startCountdown = () => {
-    setCounting(true);
-    setCount(3);
-    setKnocked(false);
-    setMissed(false);
-
-    intervalRef.current = setInterval(() => {
-      setCount(prev => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current);
-          setCounting(false);
-          setMissed(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const doKnock = () => {
-    if (!counting) return;
-    clearInterval(intervalRef.current);
-    clearTimeout(timerRef.current);
-    setCounting(false);
-    setKnocked(true);
-  };
-
-  const reset = () => { setCounting(false); setKnocked(false); setMissed(false); setCount(3); clearInterval(intervalRef.current); };
+  const [phase, setPhase] = useState('idle'); // idle | decision | knocked | passed
 
   return (
     <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-      <p className="text-white/60 text-sm mb-6">After you discard, a countdown appears. Hit KNOCK before time runs out — or let it expire and the turn passes.</p>
+      <p className="text-white/60 text-sm mb-6">After you discard with a score of 0, a choice appears. Knock to end the round, or pass to keep playing.</p>
 
       <div className="flex flex-col items-center gap-4 py-4">
-        {!counting && !knocked && !missed && (
+        {phase === 'idle' && (
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            onClick={startCountdown}
+            onClick={() => setPhase('decision')}
             className="px-8 py-3 bg-white/10 text-white rounded-xl font-bold border border-white/20 hover:bg-white/20 transition-colors"
           >
             Simulate discard →
           </motion.button>
         )}
 
-        {counting && (
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-white/60 text-sm">Knock window open!</p>
-            <motion.div
-              key={count}
-              initial={{ scale: 1.4, opacity: 0.5 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-7xl font-black text-white"
-            >
-              {count}
-            </motion.div>
+        {phase === 'decision' && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-3 w-48">
+            <p className="text-white/60 text-sm text-center mb-1">Your score is 0!</p>
             <motion.button
-              whileHover={{ scale: 1.06 }}
-              whileTap={{ scale: 0.94 }}
-              onClick={doKnock}
-              animate={{ boxShadow: ['0 0 0px rgba(255,255,255,0)', '0 0 20px rgba(255,255,255,0.3)', '0 0 0px rgba(255,255,255,0)'] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-              className="px-10 py-3 bg-white text-slate-900 rounded-xl font-black text-lg shadow-xl"
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setPhase('knocked')}
+              animate={{ boxShadow: ['0 0 0px rgba(251,191,36,0)', '0 0 16px 3px rgba(251,191,36,0.35)', '0 0 0px rgba(251,191,36,0)'] }}
+              transition={{ duration: 1.4, repeat: Infinity }}
+              className="py-2.5 rounded-xl font-black text-xs tracking-widest text-slate-900"
+              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
             >
-              KNOCK
+              👊 KNOCK
             </motion.button>
-          </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setPhase('passed')}
+              className="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-white/70 font-semibold text-xs tracking-wide transition-all"
+            >
+              Pass turn
+            </motion.button>
+          </motion.div>
         )}
 
-        {knocked && (
+        {phase === 'knocked' && (
           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
             <div className="text-4xl mb-2">👊</div>
             <p className="text-green-400 font-bold text-lg">You knocked!</p>
             <p className="text-white/50 text-sm mt-1">Opponent gets one final turn.</p>
-            <motion.button whileHover={{ scale: 1.02 }} onClick={reset} className="mt-4 px-5 py-2 bg-white/10 text-white rounded-lg text-sm border border-white/20">Try again</motion.button>
+            <motion.button whileHover={{ scale: 1.02 }} onClick={() => setPhase('idle')} className="mt-4 px-5 py-2 bg-white/10 text-white rounded-lg text-sm border border-white/20">Try again</motion.button>
           </motion.div>
         )}
 
-        {missed && (
+        {phase === 'passed' && (
           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
-            <div className="text-4xl mb-2">⏰</div>
-            <p className="text-amber-400 font-bold text-lg">Time's up</p>
-            <p className="text-white/50 text-sm mt-1">Turn passes to your opponent.</p>
-            <motion.button whileHover={{ scale: 1.02 }} onClick={reset} className="mt-4 px-5 py-2 bg-white/10 text-white rounded-lg text-sm border border-white/20">Try again</motion.button>
+            <div className="text-4xl mb-2">➡️</div>
+            <p className="text-amber-400 font-bold text-lg">Turn passed</p>
+            <p className="text-white/50 text-sm mt-1">Play continues to your opponent.</p>
+            <motion.button whileHover={{ scale: 1.02 }} onClick={() => setPhase('idle')} className="mt-4 px-5 py-2 bg-white/10 text-white rounded-lg text-sm border border-white/20">Try again</motion.button>
           </motion.div>
         )}
       </div>
 
-      <p className="text-white/30 text-xs text-center mt-2">You can only knock after discarding. Hard mode gives just 1 second.</p>
+      <p className="text-white/30 text-xs text-center mt-2">You can only knock when your score is 0 after discarding.</p>
     </div>
   );
 };
@@ -485,13 +452,13 @@ export const HowToPlay = ({ onBack, onPlayNow }) => {
 
       {/* ── Section 2: Round Structure ───────────────────────────────────────── */}
       <Section id="rounds">
-        <SectionTitle icon="🔄" title="Round Structure" subtitle="Each turn: draw → discard → knock window." />
+        <SectionTitle icon="🔄" title="Round Structure" subtitle="Each turn: draw → discard → knock?" />
 
         <div className="space-y-4 mb-8">
           {[
             { num: '1', label: 'Draw a card', body: 'Pick from the face-down deck (mystery) or the visible top of the discard pile.', color: 'bg-blue-500/10 border-blue-500/20' },
             { num: '2', label: 'Discard a card', body: 'Remove one card from your hand and place it on the discard pile.', color: 'bg-purple-500/10 border-purple-500/20' },
-            { num: '3', label: 'Knock window', body: 'A short countdown opens. If your score is 0, this is your chance to end the round.', color: 'bg-amber-500/10 border-amber-500/20' },
+            { num: '3', label: 'Knock or pass', body: 'If your score is 0 and nobody has knocked yet, choose to knock and end the round — or pass and keep playing.', color: 'bg-amber-500/10 border-amber-500/20' },
           ].map(step => (
             <div key={step.num} className={`flex gap-4 p-4 rounded-xl border ${step.color}`}>
               <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-black shrink-0">{step.num}</div>
@@ -585,15 +552,15 @@ export const HowToPlay = ({ onBack, onPlayNow }) => {
         <div className="space-y-3 mb-6">
           <div className="bg-white/5 rounded-xl p-4 border border-white/10 flex gap-3">
             <span className="text-xl">1️⃣</span>
-            <p className="text-white/70 text-sm">After discarding, if your score is 0 — all cards are in valid combinations — the knock window opens.</p>
+            <p className="text-white/70 text-sm">After discarding, if your score is 0 — all cards are in valid combinations — a <span className="text-white font-semibold">Knock / Pass</span> choice appears.</p>
           </div>
           <div className="bg-white/5 rounded-xl p-4 border border-white/10 flex gap-3">
             <span className="text-xl">2️⃣</span>
-            <p className="text-white/70 text-sm">A countdown appears: <span className="text-white font-semibold">3 seconds on Easy</span>, <span className="text-white font-semibold">1 second on Hard</span>.</p>
+            <p className="text-white/70 text-sm">Hit <span className="text-white font-semibold">KNOCK</span> to end the round, or <span className="text-white font-semibold">Pass turn</span> to keep playing without knocking.</p>
           </div>
           <div className="bg-white/5 rounded-xl p-4 border border-white/10 flex gap-3">
             <span className="text-xl">3️⃣</span>
-            <p className="text-white/70 text-sm">Click KNOCK and your opponent gets <span className="text-white font-semibold">one final turn</span>, then the round ends.</p>
+            <p className="text-white/70 text-sm">If you knock, your opponent gets <span className="text-white font-semibold">one final turn</span>, then the round ends and scores are tallied.</p>
           </div>
         </div>
 
@@ -603,7 +570,7 @@ export const HowToPlay = ({ onBack, onPlayNow }) => {
         </div>
 
         <div className="bg-amber-500/10 rounded-xl p-4 border border-amber-500/20">
-          <p className="text-amber-300 text-sm"><span className="font-bold">Strategy tip:</span> You can knock with a score above zero — but it's risky. If your opponent has a lower score, you lose the round. Only knock when you're confident.</p>
+          <p className="text-amber-300 text-sm"><span className="font-bold">Strategy tip:</span> Sometimes it's worth passing even when you can knock — your opponent might knock on their next turn at a worse moment for them. Use the pass option to stay in control.</p>
         </div>
       </Section>
 

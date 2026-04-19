@@ -4,7 +4,7 @@ A 2-player rummy-style card game built with React and Vite.
 
 ## How to Play
 
-Play through 11 rounds. Each round the hand size grows (3 cards in round 1, up to 13 in round 11). Form **sets** (3+ cards of the same rank) and **runs** (3+ consecutive cards of the same suit) to reduce your score. The wild card rotates every round. After discarding, you have a short window to **knock** — ending the round and giving your opponent one final turn. Lowest total score after 11 rounds wins.
+Play through 11 rounds. Each round the hand size grows (3 cards in round 1, up to 13 in round 11). Form **sets** (3+ cards of the same rank) and **runs** (3+ consecutive cards of the same suit) to reduce your score. The wild card rotates every round. After discarding, if your score is 0 you can **knock** — ending the round and giving your opponent one final turn. Lowest total score after 11 rounds wins.
 
 ## Modes
 
